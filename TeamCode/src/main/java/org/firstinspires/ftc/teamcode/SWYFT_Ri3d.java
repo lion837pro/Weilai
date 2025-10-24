@@ -8,7 +8,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 @TeleOp(name="SWYFT_Ri3d", group="Competition")
-//@Disabled
+
 public class SWYFT_Ri3d extends LinearOpMode {
 
     private ElapsedTime runtime = new ElapsedTime();
