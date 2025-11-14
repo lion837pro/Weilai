@@ -1,7 +1,5 @@
-package org.firstinspires.ftc.teamcode.Intake;
+package org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake;
 
-
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
 
 public class IntakeConstants {
 
