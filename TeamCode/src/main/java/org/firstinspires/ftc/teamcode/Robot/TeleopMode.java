@@ -1,19 +1,15 @@
 package org.firstinspires.ftc.teamcode.Robot;
-
-import static dev.nextftc.bindings.Bindings.button;
-
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-
+import static dev.nextftc.bindings.Bindings.button;
 import org.firstinspires.ftc.teamcode.Robot.DriveCommands.DriveCommands;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.SuperChassis;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.Intake;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.IntakeCommands;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter.Shooter;
-
 import dev.nextftc.bindings.Button;
 import dev.nextftc.ftc.NextFTCOpMode;
 
-@TeleOp(name = "NextFTC Teleop Program 2 Java")
+@TeleOp(name = "NextFTC Teleop")
 public class TeleopMode extends NextFTCOpMode {
 
     private final SuperChassis chassis = SuperChassis.INSTANCE;
@@ -21,12 +17,11 @@ public class TeleopMode extends NextFTCOpMode {
     private final Shooter shooter = Shooter.INSTANCE;
 
 
-
     private final Button a;
     private final Button b;
     private final Button options;
 
-    public TeleopMode(){
+    public TeleopMode() {
         addComponents(chassis.asCOMPONENT());
         addComponents(intake.asCOMPONENT());
         addComponents(shooter.asCOMPONENT());
@@ -38,17 +33,17 @@ public class TeleopMode extends NextFTCOpMode {
     }
 
     @Override
-    public void onInit() {
-
-    }
-
+    public void onInit() {}
     @Override
-    public void onStartButtonPressed() {
-
+    public void onWaitforStart() {}
+    @Override
+    public void onStartButtonPressed() {}
+    @Override
+    public void onUpdate() {
         options.whenTrue(DriveCommands.resetHeading(chassis));
-        a.whenTrue(IntakeCommands.runIntake(null,0.8));
-        b.whenTrue(IntakeCommands.runIntake(null,-0.8));
-
+        a.whenTrue(IntakeCommands.runIntake(null, 0.8));
+        b.whenTrue(IntakeCommands.runIntake(null, -0.8));
     }
-
+    @Override
+    public void onStop() {}
 }
