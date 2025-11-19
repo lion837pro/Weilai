@@ -33,17 +33,17 @@ public class TeleopMode extends NextFTCOpMode {
     }
 
     @Override
-    public void onInit() {}
+    public void onInit() {
+        options.whenTrue(DriveCommands.resetHeading(chassis));
+        a.whenTrue(IntakeCommands.runIntake(intake, 0.8));
+        b.whenTrue(IntakeCommands.runIntake(intake, -0.8));
+    }
     @Override
-    public void onWaitforStart() {}
+    public void onWaitForStart() {}
     @Override
     public void onStartButtonPressed() {}
     @Override
-    public void onUpdate() {
-        options.whenTrue(DriveCommands.resetHeading(chassis));
-        a.whenTrue(IntakeCommands.runIntake(null, 0.8));
-        b.whenTrue(IntakeCommands.runIntake(null, -0.8));
-    }
+    public void onUpdate() {}
     @Override
     public void onStop() {}
 }
