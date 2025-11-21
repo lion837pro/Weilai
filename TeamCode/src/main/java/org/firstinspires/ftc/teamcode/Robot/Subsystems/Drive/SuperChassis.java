@@ -222,11 +222,12 @@ public class SuperChassis implements Subsystem {
     }
 
     public void stop() {
-        // Chassis.INSTANCE.stop(); // <--- Make sure this is removed or commented out!
 
-        // Use this instead:
-        if (follower() != null) {
-            follower().setTeleOpDrive(0, 0, 0, false);
+        try {
+            if (follower() != null) {
+                follower().setTeleOpDrive(0, 0, 0, false);
+            }
+        } catch (Exception e) {
         }
     }
 }

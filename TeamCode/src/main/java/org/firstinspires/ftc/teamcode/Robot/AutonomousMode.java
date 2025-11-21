@@ -8,10 +8,7 @@ import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.paths.Path;
 import com.pedropathing.paths.PathChain;
-import com.pedropathing.util.Timer;
-import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
-import  com.qualcomm.robotcore.eventloop.opmode.OpMode;
-import org.firstinspires.ftc.teamcode.Lib.STZLite.Geometry.Pose;
+//import org.firstinspires.ftc.teamcode.Lib.STZLite.Geometry.Pose;
 import org.firstinspires.ftc.teamcode.Lib.STZLite.Geometry.Rotation;
 import org.firstinspires.ftc.teamcode.Lib.STZLite.Math.Utils.Units;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.SuperChassis;
@@ -32,15 +29,16 @@ public class AutonomousMode extends NextFTCOpMode {
         addComponents(chassis.asCOMPONENT());
     }
 
-    private final Pose startPose = new Pose(9.0, 60.0, new Rotation(Units.degreesToRadians(0)));
-    private final Pose finishPose = new Pose(37.0, 50.0, new Rotation(Units.degreesToRadians(180)));
+    private final Pose startPose = new Pose(9.0, 60.0, Math.toRadians(Units.degreesToRadians(0)));
+    private final Pose finishPose = new Pose(37.0, 50.0, Math.toRadians(Units.degreesToRadians(180)));
+
 
     private PathChain move;
 
     public void buildPaths() {
         move = follower().pathBuilder()
-                .addPath(new BezierLine(startPose.toPedroPose(), finishPose.toPedroPose()))
-                .setLinearHeadingInterpolation(startPose.toPedroPose().getHeading(), finishPose.toPedroPose().getHeading()).build();
+                .addPath(new BezierLine(startPose, finishPose))
+                .setLinearHeadingInterpolation(startPose.getHeading(), finishPose.getHeading()).build();
 
     }
 

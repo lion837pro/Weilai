@@ -17,6 +17,7 @@ import dev.nextftc.core.units.Angle;
 import dev.nextftc.extensions.pedro.FollowPath;
 import dev.nextftc.extensions.pedro.TurnBy;
 import dev.nextftc.extensions.pedro.TurnTo;
+import dev.nextftc.ftc.ActiveOpMode;
 
 public class DriveCommands {
 
@@ -97,5 +98,41 @@ public class DriveCommands {
     public static Command TurnBy(SuperChassis chassis, Rotation rotRads){
         return TurnBy(chassis, rotRads.toAngle());
     }
+    public static Command AlignByAprilTag(SuperChassis chassis){
+
+        return new LambdaCommand().
+                named("AlignByAprilTag").
+                requires(chassis).
+                setStart(()-> {
+
+                    if(chassis.isLLConnected() && chassis.getLIMELIGHT().getLatestResult().isValid())
+                    {
+                        double heading = chassis.getFOLLOWER().getPose().getHeading();
+                        double tx = Math.toRadians(chassis.getLLTx());
+
+                        // Nota: Revisa si necesitas restar o sumar dependiendo de tu configuración
+                        double target = heading - tx;
+
+                        // 2. Le damos la orden al Follower
+                        follower().turnTo(target);
+
+                        ActiveOpMode.telemetry().addData("AutoAlign", "Targeting...");
+                    } else {
+                        ActiveOpMode.telemetry().addData("AutoAlign", "No Tag Found");
+                    }
+                }).
+                setUpdate(
+                        ()-> {}
+                ).
+                setStop(interrupted -> {
+                    // Opcional: Si se interrumpe manualmente, frenar.
+                    if(interrupted) chassis.stop();
+                }).
+                setIsDone(()-> {
+
+                    return !follower().isBusy();
+                }).
+                setInterruptible(true);
+                }
 
 }

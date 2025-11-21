@@ -25,6 +25,7 @@ public class TeleopMode extends NextFTCOpMode {
     private  Button a;
     private  Button b;
     private Button right_bumper;
+    private Button left_bumper;
     private Button x;
     private  Button options;
 
@@ -46,7 +47,7 @@ public class TeleopMode extends NextFTCOpMode {
         this.b = button(() -> gamepad1.b);
         //this.x = button(() -> gamepad1.x);
         this.right_bumper = button(() -> gamepad1.right_bumper);
-
+        this.left_bumper = button(() -> gamepad1.left_bumper);
         this.options = button(() -> gamepad1.options);
 
 
@@ -61,8 +62,11 @@ public class TeleopMode extends NextFTCOpMode {
 
         //x.whenBecomesTrue(ShooterCommands.runShooter(shooter, 0.8));
 
-        right_bumper.whenBecomesTrue(ShooterCommands.runShooterPID(shooter, 1500));
+        right_bumper.whenBecomesTrue(ShooterCommands.runShooterPID(shooter, 1800));
         right_bumper.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
+
+        left_bumper.whenBecomesTrue(DriveCommands.AlignByAprilTag(chassis));
+
             
         shooter.setDefaultCommand(
                 ShooterCommands.runManualShooter(shooter,
