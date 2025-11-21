@@ -61,7 +61,14 @@ public class TeleopMode extends NextFTCOpMode {
 
         //x.whenBecomesTrue(ShooterCommands.runShooter(shooter, 0.8));
 
-        right_bumper.whenBecomesTrue(ShooterCommands.shootWithFeed(shooter, intake, 4500));
+        chassis.setDefaultCommand(
+                DriveCommands.runWithJoysticks(chassis,
+                        () -> -gamepad1.left_stick_y,
+                        () -> -gamepad1.left_stick_x,
+                        () -> -gamepad1.right_stick_x,
+                        false));
+
+        right_bumper.whenBecomesTrue(ShooterCommands.shootWithAutoAim(shooter, intake, chassis));
 
         right_bumper.whenBecomesFalse(new dev.nextftc.core.commands.groups.ParallelGroup(
                 ShooterCommands.stopShooter(shooter),
@@ -77,12 +84,7 @@ public class TeleopMode extends NextFTCOpMode {
 
 
         // 4. Drive Command (This part is correct)
-        chassis.setDefaultCommand(
-                DriveCommands.runWithJoysticks(chassis,
-                        () -> -gamepad1.left_stick_y,
-                        () -> -gamepad1.left_stick_x,
-                        () -> -gamepad1.right_stick_x,
-                        false));
+
     }
     @Override
     public void onWaitForStart() {}

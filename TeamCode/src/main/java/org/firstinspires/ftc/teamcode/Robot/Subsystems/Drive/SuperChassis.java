@@ -73,7 +73,25 @@ public class SuperChassis implements Subsystem {
     public Command getDefaultCommand() {
         return defaultCommand;
     }
+    public double getDistanceToTag() {
+        if (!isLLConnected()) return 0.0;
 
+        // 1. Get vertical offset (ty)
+        double ty = getLLTy();
+
+        // 2. Calculate angle sum (Camera Mount Angle + Target Offset)
+        double angleToGoalDegrees = VisionConstants.CAMERA_ANGLE + ty;
+        double angleToGoalRadians = Math.toRadians(angleToGoalDegrees);
+
+        // 3. Calculate difference in height
+        double heightDiff = VisionConstants.TARGET_HEIGHT - VisionConstants.CAMERA_HEIGHT;
+
+        // 4. Calculate Distance
+        // Avoid division by zero if angle is perfectly flat (rare)
+        if (Math.abs(Math.tan(angleToGoalRadians)) < 0.001) return 0.0;
+
+        return heightDiff / Math.tan(angleToGoalRadians);
+    }
     public void setDefaultCommand(Command command){
         this.defaultCommand = command;
     }
