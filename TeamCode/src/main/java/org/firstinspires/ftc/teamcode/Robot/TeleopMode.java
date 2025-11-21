@@ -7,6 +7,7 @@ import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.SuperChassis;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.Intake;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.IntakeCommands;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter.Shooter;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter.ShooterCommands;
 
 import dev.nextftc.bindings.BindingManager;
 import dev.nextftc.bindings.Button;
@@ -23,6 +24,8 @@ public class TeleopMode extends NextFTCOpMode {
 
     private  Button a;
     private  Button b;
+    private Button right_bumper;
+    private Button x;
     private  Button options;
 
     public TeleopMode() {
@@ -41,6 +44,9 @@ public class TeleopMode extends NextFTCOpMode {
 
         this.a = button(() -> gamepad1.a);
         this.b = button(() -> gamepad1.b);
+        //this.x = button(() -> gamepad1.x);
+        this.right_bumper = button(() -> gamepad1.right_bumper);
+
         this.options = button(() -> gamepad1.options);
 
 
@@ -52,6 +58,16 @@ public class TeleopMode extends NextFTCOpMode {
 
         b.whenBecomesTrue(IntakeCommands.runIntake(intake, -0.8));
         b.whenBecomesFalse(IntakeCommands.stopIntake(intake));
+
+        //x.whenBecomesTrue(ShooterCommands.runShooter(shooter, 0.8));
+
+        right_bumper.whenBecomesTrue(ShooterCommands.runShooterPID(shooter, 1500));
+        right_bumper.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
+            
+        shooter.setDefaultCommand(
+                ShooterCommands.runManualShooter(shooter,
+                        () -> gamepad1.right_trigger));
+
 
         // 4. Drive Command (This part is correct)
         chassis.setDefaultCommand(

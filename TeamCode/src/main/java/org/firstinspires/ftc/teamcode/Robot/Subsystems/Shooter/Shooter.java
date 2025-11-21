@@ -1,7 +1,8 @@
 package org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter;
+import androidx.annotation.NonNull;
 
-import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.Intake;
-
+import dev.nextftc.core.commands.Command;
+import dev.nextftc.core.commands.utility.NullCommand;
 import dev.nextftc.core.components.SubsystemComponent;
 import dev.nextftc.core.subsystems.Subsystem;
 import dev.nextftc.hardware.impl.MotorEx;
@@ -18,6 +19,7 @@ public class Shooter implements Subsystem {
 
     private boolean hasTarget = false;
     private boolean open = false;
+    private Command defaultCommand = new NullCommand();
 
     @Override
     public void initialize() {
@@ -32,6 +34,15 @@ public class Shooter implements Subsystem {
         Sh1.floatMode();
         Sh2.floatMode();
     }
+    @NonNull
+    @Override
+    public Command getDefaultCommand() {
+        return defaultCommand;
+    }
+    public void setDefaultCommand(Command command){
+        this.defaultCommand = command;
+    }
+
 
     @Override
 
@@ -84,6 +95,4 @@ public class Shooter implements Subsystem {
     }
     public SubsystemComponent asCOMPONENT(){return new SubsystemComponent(INSTANCE);}
 
-    public void Sh1(double power) {
-    }
 }
