@@ -4,6 +4,8 @@
 
 package org.firstinspires.ftc.teamcode.Lib.STZLite.Math.Controller;
 
+import com.qualcomm.robotcore.util.ElapsedTime;
+
 import org.firstinspires.ftc.teamcode.Lib.STZLite.Math.Controller.Gains.ProfileGains;
 import org.firstinspires.ftc.teamcode.Lib.STZLite.Math.Controller.Helpers.Output;
 import org.firstinspires.ftc.teamcode.Lib.STZLite.Math.Utils.MathUtil;
@@ -53,6 +55,16 @@ public class PIDController {
 
     private boolean m_haveMeasurement;
     private boolean m_haveSetpoint;
+
+    // ... (Mantén todas tus variables y getters/setters existentes: m_kp, m_ki, m_kd, m_totalError, etc.) ...
+
+    // NUEVA VARIABLE: Temporizador para medir el tiempo transcurrido
+    private final ElapsedTime timer = new ElapsedTime(); // Se inicializa al crear el objeto
+
+    /**
+     * The time delta (dt) computed in the last call to calculate().
+     */
+    private double m_lastDt; // Para guardar el dt de la última iteración
 
     public PIDController(double kp, double ki, double kd) {
         m_kp = kp;
@@ -342,10 +354,10 @@ public class PIDController {
      * @param setpoint The new setpoint of the controller.
      * @return The next controller output.
      */
-    public Output calculate(double measurement, double setpoint, double dt) {
+    public Output calculate(double measurement, double setpoint) {
         m_setpoint = setpoint;
         m_haveSetpoint = true;
-        return calculate(measurement, dt);
+        return calculate(measurement); // Llama al nuevo método principal
     }
 
     /**
@@ -354,10 +366,32 @@ public class PIDController {
      * @param measurement The current measurement of the process variable.
      * @return The next controller output.
      */
-    public Output calculate(double measurement, double dt) {
+    /**
+     * Returns the next output of the PID controller.
+     *
+     * @param measurement The current measurement of the process variable.
+     * @return The next controller output.
+     */
+    public Output calculate(double measurement) {
         m_measurement = measurement;
         m_prevError = m_error;
         m_haveMeasurement = true;
+
+        // 1. CALCULAR DT (El paso clave)
+        // El método seconds() retorna el tiempo transcurrido desde que se creó el timer (o se reseteó).
+        // El método seconds() también es un punto de tiempo.
+        // WPILib y NextFTC hacen algo similar: obtienen el tiempo actual y lo comparan con el anterior.
+
+        // Lo que hace la clase ElapsedTime internamente es usar System.nanoTime(), lo cual es Monotónico.
+        double currentTimeSeconds = timer.seconds();
+
+        // 'dt' es el tiempo transcurrido desde la última llamada a calculate()
+        double dt = currentTimeSeconds - m_lastDt;
+
+        // Guardamos el tiempo actual para que sea el 'lastTime' en la siguiente iteración
+        m_lastDt = currentTimeSeconds;
+
+        // -----------------------------------------------------
 
         if (m_continuous) {
             double errorBound = (m_maximumInput - m_minimumInput) / 2.0;
@@ -366,6 +400,7 @@ public class PIDController {
             m_error = m_setpoint - m_measurement;
         }
 
+        // Usar el dt calculado internamente
         if (dt > 0.0) {
             // Usa el 'dt' real para la Derivada
             m_errorDerivative = (m_error - m_prevError) / dt;
@@ -376,14 +411,12 @@ public class PIDController {
             } else if (m_ki != 0) {
                 m_totalError =
                         MathUtil.clamp(
-                                m_totalError + m_error * dt, // <-- CAMBIO AQUÍ
+                                m_totalError + m_error * dt, // <--- USA DT INTERNO
                                 m_minimumIntegral / m_ki,
                                 m_maximumIntegral / m_ki);
             }
         } else {
-            // Si dt es 0, no podemos calcular la derivada, asumimos 0
             m_errorDerivative = 0.0;
-            // No acumulamos integral si no pasó tiempo
         }
 
         final double result = m_kp * m_error + m_ki * m_totalError + m_kd * m_errorDerivative;
@@ -398,6 +431,10 @@ public class PIDController {
         m_totalError = 0;
         m_errorDerivative = 0;
         m_haveMeasurement = false;
+
+        // IMPORTANTE: Resetear la marca de tiempo (o el timer) para evitar un dt enorme
+        timer.reset();
+        m_lastDt = 0;
     }
 
 }

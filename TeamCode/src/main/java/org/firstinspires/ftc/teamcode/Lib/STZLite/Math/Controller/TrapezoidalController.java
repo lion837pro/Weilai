@@ -1,6 +1,8 @@
 package org.firstinspires.ftc.teamcode.Lib.STZLite.Math.Controller;
 
 
+import com.qualcomm.robotcore.util.ElapsedTime;
+
 import org.firstinspires.ftc.teamcode.Lib.STZLite.Math.Controller.Gains.ProfileGains;
 import org.firstinspires.ftc.teamcode.Lib.STZLite.Math.Controller.Helpers.Output;
 import org.firstinspires.ftc.teamcode.Lib.STZLite.Math.Controller.Helpers.TrapezoidProfile;
@@ -19,6 +21,9 @@ public class TrapezoidalController{
     private TrapezoidProfile m_profile;
     private TrapezoidProfile.State m_goal = new TrapezoidProfile.State();
     private TrapezoidProfile.State m_setpoint = new TrapezoidProfile.State();
+
+    private final ElapsedTime m_timer = new ElapsedTime();
+    private double m_lastTimeSeconds = 0.0;
 
 
     /**
@@ -245,9 +250,33 @@ public class TrapezoidalController{
     /**
      * Returns the next output of the PID controller.
      */
-    public Output calculate(double measurement, double dt) {
+    // Modificar la firma para quitar el 'dt' y añadir '@Override' si fuera una interfaz.
+// Aquí eliminamos el 'dt' del argumento.
+    /**
+     * Returns the next output of the PID controller.
+     * @param measurement The current measurement of the process variable.
+     * @return The next controller output.
+     */
+    public Output calculate(double measurement) { // <--- ARGUMENTO dt ELIMINADO
+
+        // 1. CÁLCULO INTERNO DEL DT (Tiempo transcurrido real)
+        double currentTimeSeconds = m_timer.seconds();
+        double dt = currentTimeSeconds - m_lastTimeSeconds;
+
+        // Solo actualizamos m_lastTimeSeconds si no es la primera iteración,
+        // o reiniciamos el dt si es la primera vez (m_lastTimeSeconds == 0.0,
+        // aunque ElapsedTime.seconds() nunca será 0 a menos que se haya reiniciado)
+        if (m_lastTimeSeconds == 0.0) {
+            // En la primera llamada, dt debe ser 0 para evitar grandes saltos.
+            dt = 0.0;
+        }
+        m_lastTimeSeconds = currentTimeSeconds;
+        // -----------------------------------------------------------------
+
         if (m_controller.isContinuousInputEnabled()) {
             double errorBound = (m_maximumInput - m_minimumInput) / 2.0;
+
+            // La lógica de envolver (wrap) los setpoints si el input es continuo
             double goalMinDistance =
                     MathUtil.inputModulus(m_goal.position - measurement, -errorBound, errorBound);
             double setpointMinDistance =
@@ -257,47 +286,53 @@ public class TrapezoidalController{
             m_setpoint.position = setpointMinDistance + measurement;
         }
 
-        // --- CAMBIO AQUÍ ---
-        // Pasa el 'dt' real al generador de perfiles
-        // Asume que el primer argumento de 'm_profile.calculate' es el dt
+        // --- PASO CLAVE 1: GENERAR EL SETPOINT DE PERFIL ---
+        // Usamos el 'dt' calculado internamente para avanzar el perfil.
         m_setpoint = m_profile.calculate(dt, m_setpoint, m_goal);
 
-        // --- CAMBIO AQUÍ ---
-        // Pasa el 'dt' real al controlador PID
-        return m_controller.calculate(measurement, m_setpoint.position, dt);
+        // --- PASO CLAVE 2: CALCULAR EL PID ---
+        // Llamamos al PIDController que ya tiene su propio manejo de tiempo.
+        // m_controller.calculate(measurement)
+
+        // NOTA: WPILIB usa m_controller.calculate(measurement, m_setpoint.velocity)
+        // en una versión de su PIDController que usa la velocidad para el término D.
+        // Como tu PIDController usa la derivada de error, el siguiente es suficiente:
+        return m_controller.calculate(measurement);
     }
 
     /**
      * Returns the next output of the PID controller.
      */
-    public Output calculate(double measurement, TrapezoidProfile.State goal, double dt) {
+    public Output calculate(double measurement, TrapezoidProfile.State goal) {
         setGoal(goal);
-        return calculate(measurement, dt);
+        return calculate(measurement);
     }
 
     /**
      * Returns the next output of the PIDController.
      */
-    public Output calculate(double measurement, double goal, double dt) {
+    public Output calculate(double measurement, double goal) {
         setGoal(goal);
-        return calculate(measurement, dt);
+        return calculate(measurement);
     }
 
     /**
      * Returns the next output of the PID controller.
      */
     public Output calculate(
-            double measurement, TrapezoidProfile.State goal, TrapezoidProfile.Constraints constraints, double dt) {
+            double measurement, TrapezoidProfile.State goal, TrapezoidProfile.Constraints constraints) {
         setConstraints(constraints);
-        return calculate(measurement, goal, dt);
+        return calculate(measurement, goal);
     }
 
-    /**
-     * Reset the previous error and the integral term.
-     */
+
     public void reset(TrapezoidProfile.State measurement) {
-        m_controller.reset();
+        m_controller.reset(); // Reinicia el PID (y su timer interno)
         m_setpoint = measurement;
+
+        // Reiniciar las variables de tiempo del TrapezoidalController
+        m_timer.reset();
+        m_lastTimeSeconds = 0.0;
     }
 
     /**

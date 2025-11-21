@@ -28,7 +28,7 @@ public class IntakeCommands {
                 .requires(intake) // This forces 'runIntake' to cancel
                 .setStart(() -> intake.MoveIn(0))
                 .setUpdate(() -> intake.MoveIn(0))
-                .setIsDone(() -> true) // Finishes immediately
+                .setIsDone(() -> false) // Finishes immediately
                 .setInterruptible(true);
     }
 }

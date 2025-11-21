@@ -7,7 +7,6 @@ import java.util.function.DoubleSupplier;
  */
 public class FilteredDoubleSupplier{
 
-
     /**
      * Filters the input of a {@link DoubleSupplier} using a kE value.
      *

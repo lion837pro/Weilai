@@ -19,7 +19,7 @@ import dev.nextftc.hardware.impl.MotorEx;
 
 public class Chassis extends Drivetrain{
 
-    public  static  final  Chassis INSTANCE = new Chassis();
+    public  static final Chassis INSTANCE = new Chassis();
 
     private List<MotorEx> motors;
 

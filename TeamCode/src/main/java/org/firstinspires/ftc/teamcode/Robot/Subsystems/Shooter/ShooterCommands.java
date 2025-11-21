@@ -7,17 +7,17 @@ import dev.nextftc.core.commands.utility.LambdaCommand;
 
 public class ShooterCommands {
 
-    public static Command runShooter(Shooter shooter, double speed) {
+    public static Command runShooter(Shooter shooter, double power) {
 
         return new LambdaCommand().
                 named("runWithButton").
                 requires(shooter).
                 setStart(() -> {}).
-                setUpdate(() -> { shooter.MoveSh(speed);}).
-                setStop(interrupted -> { shooter.MoveSh(0);
-
+                setUpdate(() -> { shooter.Sh1(power);}).
+                setStop(interrupted -> { shooter.Sh1(0);
                 }).
                 setIsDone(() -> false).
                 setInterruptible(true);
-    }
+
+}
 }
