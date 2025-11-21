@@ -43,6 +43,7 @@ public class TeleopMode extends NextFTCOpMode {
         options.whenTrue(DriveCommands.resetHeading(chassis));
         a.whenTrue(IntakeCommands.runIntake(intake, 0.8));
         b.whenTrue(IntakeCommands.runIntake(intake, -0.8));
+
         chassis.setDefaultCommand(
                 DriveCommands.runWithJoysticks(
                         chassis,
