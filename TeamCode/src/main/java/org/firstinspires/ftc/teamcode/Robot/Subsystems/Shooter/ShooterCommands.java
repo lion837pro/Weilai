@@ -5,6 +5,7 @@ import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.Intake;
 import java.util.function.DoubleSupplier;
 
 import dev.nextftc.core.commands.Command;
+import dev.nextftc.core.commands.groups.ParallelGroup;
 import dev.nextftc.core.commands.utility.LambdaCommand;
 
 public class ShooterCommands {
@@ -39,16 +40,39 @@ public class ShooterCommands {
     /**
      * Runs the shooter at a specific velocity using PID control.
      * @param shooter The shooter subsystem
-     * @param velocity The target velocity in Ticks Per Second (e.g., 1500)
      */
-    public static Command runShooterPID(Shooter shooter, double velocity) {
+
+    public static Command shootWithFeed(Shooter shooter, Intake intake, double rpm) {
+        return new ParallelGroup(
+                // Command 1: Run the Shooter PID (Always running)
+                runShooterPID(shooter, rpm),
+
+                // Command 2: The "Smart Feeder"
+                new LambdaCommand()
+                        .named("SmartFeed")
+                        .requires(intake) // Controls the intake
+                        .setUpdate(() -> {
+                            // ONLY run the intake if the shooter is ready
+                            if (shooter.atSetpoint()) {
+                                intake.MoveIn(1.0); // Feed the ball (adjust power if needed)
+                            } else {
+                                intake.MoveIn(0);   // Wait for shooter to speed up
+                            }
+                        })
+                        .setStop(interrupted -> intake.MoveIn(0)) // Stop when button released
+                        .setIsDone(() -> false)
+                        .setInterruptible(true)
+        );
+    }
+    public static Command runShooterPID(Shooter shooter, double rpm) {
+        double targetTPS = ShooterConstants.rpmToTicksPerSecond(rpm);
         return new LambdaCommand()
                 .named("runShooterPID")
                 .requires(shooter)
                 // Switch to PID mode and set the target
-                .setStart(() -> shooter.toVelocity(velocity))
+                .setStart(() -> shooter.toVelocity(targetTPS))
                 // (Optional) We can keep setting it to ensure it stays in that mode
-                .setUpdate(() -> shooter.toVelocity(velocity))
+                .setUpdate(() -> shooter.toVelocity(targetTPS))
                 // Stop when interrupted
                 .setStop(interrupted -> shooter.stop())
                 .setIsDone(() -> false) // Run forever until button released

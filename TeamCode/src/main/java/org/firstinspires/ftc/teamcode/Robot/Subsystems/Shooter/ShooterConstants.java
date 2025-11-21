@@ -4,7 +4,18 @@ public class ShooterConstants {
     public static final String shootername1 = "Sh1";
     public static final String shootername2 = "Sh2";
 
-    public static final double kP = 0.05;
+    public static final double TICKS_PER_REV = 28.0; // For GoBilda Yellow Jacket 1:1
+    public static final double MAX_RPM = 6000.0;
+    public static double rpmToTicksPerSecond(double rpm) {
+        return (rpm * TICKS_PER_REV) / 60.0;
+    }
+    public static double ticksPerSecondToRPM(double tps) {
+        return (tps * 60.0) / TICKS_PER_REV;
+    }
+    public  static  final  boolean shootername2inverted = true;
+    public  static  final  boolean shootername1inverted = false;
+
+    public static final double kP = 0.0001;
     public static final double kS = 0.00035;
     public static final double kV = 0.0001;
 
