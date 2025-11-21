@@ -33,7 +33,6 @@ dependencies {
     implementation 'dev.nextftc:ftc:1.0.1'
     implementation 'dev.nextftc:hardware:1.0.1' // If you would like to use the hardware module
     implementation 'dev.nextftc.extensions:pedro:1.0.0'
-    //implementation "com.bylazar:ftcontrol:0.6.8"
     implementation "com.bylazar:limelightproxy:1.0.3"
 
 }

@@ -34,7 +34,7 @@ public class SuperChassis implements Subsystem {
 
     public static final SuperChassis INSTANCE = new SuperChassis();
 
-    //private Chassis mecanum;
+
     private Limelight3A limelight;
 
     private  double tx;
@@ -51,14 +51,23 @@ public class SuperChassis implements Subsystem {
     @Override
     public void initialize() {
         HardwareMap map = ActiveOpMode.hardwareMap();
-        //mecanum = new Chassis();
-        //mecanum.initialize();
-
-        limelight = map.get(Limelight3A.class, VisionConstants.limelightName);
-        limelight.setPollRateHz(100);
-        limelight.start();
-        follower().setStartingPose(Pose.kZero.toPedroPose());
+        try {
+            limelight = map.get(Limelight3A.class, VisionConstants.limelightName);
+            limelight.setPollRateHz(100);
+            limelight.start();
+        } catch (Exception e) {
+            ActiveOpMode.telemetry().addData("Limelight Error", e.getMessage());
+        }
+        try {
+            Follower f = follower();
+            if (f != null) {
+                f.setStartingPose(Pose.kZero.toPedroPose());
+            }
+        } catch (Exception e) {
+            ActiveOpMode.telemetry().addData("Follower Error", "Not initialized yet");
+        }
     }
+
     @NonNull
     @Override
     public Command getDefaultCommand() {
@@ -69,80 +78,89 @@ public class SuperChassis implements Subsystem {
         this.defaultCommand = command;
     }
     @Override
-    public void periodic(){
+    public void periodic() {
+        if (limelight == null || !limelight.isConnected()) {
+            clearFiducials();
+            return;
+        }
 
-        if(limelight.isConnected()){
-
+        try {
             limelight.updateRobotOrientation(getAngle().inRad);
             LLResult result = limelight.getLatestResult();
 
-            if(validLLResult(result)){
+            if (!validLLResult(result)) {
+                clearFiducials();
+                return;
+            }
 
-                long staleness = result.getStaleness();
+            long staleness = result.getStaleness();
 
-                if(staleness < VisionConstants.STALENESS_THRESHOLD_MS){
-                    telemetry.addData("Limelight Data", "Fresh (" + staleness + " ms)");
-                    this.tx = result.getTx(); // How far left or right the target is (degrees)
-                    this.ty = result.getTy(); // How far up or down the target is (degrees)
-                    this.ta = result.getTa(); // How big the target looks (0%-100% of the image)
+            if (staleness < VisionConstants.STALENESS_THRESHOLD_MS) {
+                // Fresh data
+                this.tx = result.getTx();
+                this.ty = result.getTy();
+                this.ta = result.getTa();
 
-                    Pose3D botpose_mt2 = result.getBotpose_MT2();
+                Pose3D botpose_mt2 = result.getBotpose_MT2();
 
-                    if (botpose_mt2 != null) {
-                        double x = botpose_mt2.getPosition().x;
-                        double y = botpose_mt2.getPosition().y;
+                if (botpose_mt2 != null) {
+                    double x = botpose_mt2.getPosition().x;
+                    double y = botpose_mt2.getPosition().y;
 
-                        robotPose.setX(x);
-                        robotPose.setY(y);
-                        robotPose.setRotation(getAngle().inRad);
+                    robotPose.setX(x);
+                    robotPose.setY(y);
+                    robotPose.setRotation(getAngle().inRad);
 
-                        telemetry.addData("MT2 Location:", "(" + x + ", " + y + ")");
-                        follower().setPose(robotPose.toPedroPose());
+                    try {
+                        Follower f = follower();
+                        if (f != null) {
+                            f.setPose(robotPose.toPedroPose());
+                        }
+                    } catch (Exception e) {
+                        // Follower not ready yet
                     }
-                    this.currentFiducials = result.getFiducialResults();
-
-                    if (this.currentFiducials != null && !this.currentFiducials.isEmpty()) {
-                        this.lastDetectedId = this.currentFiducials.get(0).getFiducialId();
-                        telemetry.addData("Viendo Tag (primero)", this.lastDetectedId);
-                    } else {
-                        this.lastDetectedId = -1;
-                        telemetry.addData("Viendo Tag", "Ninguno");
-                    }
-
                 }
-                //DATOS VIEJOS
-                else{
-                    telemetry.addData("Limelight Data", "Stale (" + staleness + " ms)");
-                    if (this.currentFiducials != null) this.currentFiducials.clear();
+
+                this.currentFiducials = result.getFiducialResults();
+
+                if (this.currentFiducials != null && !this.currentFiducials.isEmpty()) {
+                    this.lastDetectedId = this.currentFiducials.get(0).getFiducialId();
+                } else {
                     this.lastDetectedId = -1;
                 }
-
             } else {
-                //RESULT NO VALIDO
-                if (this.currentFiducials != null) this.currentFiducials.clear();
-                this.lastDetectedId = -1;
+                // Stale data
+                clearFiducials();
             }
-        } else {
-            //LIMELIGHT DESCONECTADA
-            if (this.currentFiducials != null) this.currentFiducials.clear();
-            this.lastDetectedId = -1;
+        } catch (Exception e) {
+            clearFiducials();
         }
-
     }
 
-    public SubsystemComponent asCOMPONENT(){
+    private void clearFiducials() {
+        if (this.currentFiducials != null) {
+            this.currentFiducials.clear();
+        }
+        this.lastDetectedId = -1;
+    }
+
+    public SubsystemComponent asCOMPONENT() {
         return new SubsystemComponent(INSTANCE);
     }
 
-    public Limelight3A getLIMELIGHT(){
+    public Limelight3A getLIMELIGHT() {
         return limelight;
     }
 
-    public Follower getFOLLOWER(){
-        return follower();
+    public Follower getFOLLOWER() {
+        try {
+            return follower();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
-    public boolean hasID(int id){
+    public boolean hasID(int id) {
         if (this.currentFiducials == null || this.currentFiducials.isEmpty()) {
             return false;
         }
@@ -156,44 +174,55 @@ public class SuperChassis implements Subsystem {
         return false;
     }
 
-    public boolean isLLConnected(){
-        return limelight.isConnected();
+    public boolean isLLConnected() {
+        return limelight != null && limelight.isConnected();
     }
 
-    private boolean validLLResult(LLResult result){
+    private boolean validLLResult(LLResult result) {
         return result != null && result.isValid();
     }
 
-    public Angle getAngle(){
-        return gyro().get();
+    public Angle getAngle() {
+        try {
+            return gyro().get();
+        } catch (Exception e) {
+            return Angle.fromRad(0);
+        }
     }
 
-    public double getLLTx(){
+    public double getLLTx() {
         return tx;
     }
 
-    public double getLLTy(){
+    public double getLLTy() {
         return ty;
     }
 
-    public double getLLTa(){
+    public double getLLTa() {
         return ta;
     }
 
-    public void switchLLPipeline(int pipe){
-        limelight.pipelineSwitch(pipe);
+    public void switchLLPipeline(int pipe) {
+        if (limelight != null) {
+            limelight.pipelineSwitch(pipe);
+        }
     }
 
-    public void resetHeading(){
-        com.pedropathing.geometry.Pose pedroPose = follower().poseTracker.getPose();
-        Pose reset = new Pose(pedroPose.getX(), pedroPose.getY(), Rotation.kZero);
-        follower().poseTracker.setPose(reset.toPedroPose());
+    public void resetHeading() {
+        try {
+            Follower f = follower();
+            if (f != null) {
+                com.pedropathing.geometry.Pose pedroPose = f.poseTracker.getPose();
+                Pose reset = new Pose(pedroPose.getX(), pedroPose.getY(), Rotation.kZero);
+                f.poseTracker.setPose(reset.toPedroPose());
+            }
+        } catch (Exception e) {
+            // Follower not ready
+        }
     }
 
-    public void stop(){
-        //mecanum.stop();
+    public void stop() {
         Chassis.INSTANCE.stop();
     }
-
-
 }
+
