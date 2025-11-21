@@ -21,9 +21,9 @@ public class TeleopMode extends NextFTCOpMode {
     private final Shooter shooter = Shooter.INSTANCE;
 
 
-    private final Button a;
-    private final Button b;
-    private final Button options;
+    private  Button a;
+    private  Button b;
+    private  Button options;
 
     public TeleopMode() {
         addComponents(new PedroComponent(ChassisConstants::buildPedroPathing));
@@ -32,26 +32,34 @@ public class TeleopMode extends NextFTCOpMode {
         addComponents(shooter.asCOMPONENT());
 
 
-        this.a = button(() -> gamepad1.a);
-        this.b = button(() -> gamepad1.b);
-        this.options = button(() -> gamepad1.options);
+
 
     }
 
     @Override
     public void onInit() {
-        options.whenTrue(DriveCommands.resetHeading(chassis));
-        a.whenTrue(IntakeCommands.runIntake(intake, 0.8));
-        b.whenTrue(IntakeCommands.runIntake(intake, -0.8));
 
+        this.a = button(() -> gamepad1.a);
+        this.b = button(() -> gamepad1.b);
+        this.options = button(() -> gamepad1.options);
+
+
+        options.whenBecomesTrue(DriveCommands.resetHeading(chassis));
+
+
+        a.whenBecomesTrue(IntakeCommands.runIntake(intake, 0.8));
+        a.whenBecomesFalse(IntakeCommands.stopIntake(intake));
+
+        b.whenBecomesTrue(IntakeCommands.runIntake(intake, -0.8));
+        b.whenBecomesFalse(IntakeCommands.stopIntake(intake));
+
+        // 4. Drive Command (This part is correct)
         chassis.setDefaultCommand(
-                DriveCommands.runWithJoysticks(
-                        chassis,
-                        () -> -gamepad1.left_stick_y,  // Forward (Negative because stick up is negative)
-                        () -> -gamepad1.left_stick_x,  // Strafe (Negative for standard Left=Positive coordinate)
-                        () -> -gamepad1.right_stick_x, // Turn (Negative for standard Left=Positive coordinate)
+                DriveCommands.runWithJoysticks(chassis,
+                        () -> -gamepad1.left_stick_y,
+                        () -> -gamepad1.left_stick_x,
+                        () -> -gamepad1.right_stick_x,
                         false));
-
     }
     @Override
     public void onWaitForStart() {}

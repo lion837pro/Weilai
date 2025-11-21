@@ -6,7 +6,11 @@ import dev.nextftc.core.components.SubsystemComponent;
 import dev.nextftc.core.subsystems.Subsystem;
 import dev.nextftc.hardware.impl.MotorEx;
 
+import org.firstinspires.ftc.teamcode.Lib.STZLite.Math.Controller.VelocityProfileController;
+import org.firstinspires.ftc.teamcode.Lib.STZLite.Math.Intervals.Interval;
+
 public class Shooter implements Subsystem {
+    public static final Shooter INSTANCE = new Shooter();
 
     private VelocityProfileController controller;
     private MotorEx shooter1;
@@ -77,5 +81,5 @@ public class Shooter implements Subsystem {
 
         return Interval.isInRange(getVelocity(), minLimit, maxLimit);
     }
-
+    public SubsystemComponent asCOMPONENT(){return new SubsystemComponent(INSTANCE);}
 }
