@@ -13,6 +13,8 @@ import org.firstinspires.ftc.teamcode.Lib.STZLite.Drive.Chassis;
 import org.firstinspires.ftc.teamcode.Lib.STZLite.Geometry.Pose;
 import org.firstinspires.ftc.teamcode.Lib.STZLite.Geometry.Rotation;
 
+import dev.nextftc.core.commands.Command;
+import dev.nextftc.core.commands.utility.NullCommand;
 import dev.nextftc.core.components.SubsystemComponent;
 import dev.nextftc.core.subsystems.Subsystem;
 import dev.nextftc.core.units.Angle;
@@ -22,6 +24,8 @@ import dev.nextftc.ftc.ActiveOpMode;
 import static dev.nextftc.extensions.pedro.PedroComponent.follower;
 import static dev.nextftc.extensions.pedro.PedroComponent.gyro;
 
+import androidx.annotation.NonNull;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,7 +34,7 @@ public class SuperChassis implements Subsystem {
 
     public static final SuperChassis INSTANCE = new SuperChassis();
 
-    private Chassis mecanum;
+    //private Chassis mecanum;
     private Limelight3A limelight;
 
     private  double tx;
@@ -42,19 +46,28 @@ public class SuperChassis implements Subsystem {
     private List<LLResultTypes.FiducialResult> currentFiducials = new ArrayList<>();
 
     private final Pose robotPose = new Pose();
+    private Command defaultCommand = new NullCommand();
 
     @Override
     public void initialize() {
         HardwareMap map = ActiveOpMode.hardwareMap();
-        mecanum = new Chassis();
-        mecanum.initialize();
-        new PedroComponent(ChassisConstants::buildPedroPathing);
+        //mecanum = new Chassis();
+        //mecanum.initialize();
+
         limelight = map.get(Limelight3A.class, VisionConstants.limelightName);
         limelight.setPollRateHz(100);
         limelight.start();
         follower().setStartingPose(Pose.kZero.toPedroPose());
     }
+    @NonNull
+    @Override
+    public Command getDefaultCommand() {
+        return defaultCommand;
+    }
 
+    public void setDefaultCommand(Command command){
+        this.defaultCommand = command;
+    }
     @Override
     public void periodic(){
 
@@ -178,7 +191,8 @@ public class SuperChassis implements Subsystem {
     }
 
     public void stop(){
-        mecanum.stop();
+        //mecanum.stop();
+        Chassis.INSTANCE.stop();
     }
 
 

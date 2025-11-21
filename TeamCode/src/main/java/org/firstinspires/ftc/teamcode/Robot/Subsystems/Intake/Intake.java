@@ -11,7 +11,7 @@ public class Intake implements Subsystem {
 
     @Override
     public void initialize() {
-        In  = new MotorEx("In");
+        In  = new MotorEx(IntakeConstants.intakename);
     }
 
     @Override

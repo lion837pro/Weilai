@@ -15,10 +15,20 @@ public class IntakeCommands {
                 setStop(interrupted-> { intake.MoveIn(0);
 
                 }).
-                setIsDone(()-> false).
+                setIsDone(()-> true).
                 setInterruptible(true);
     }
+    public static Command stopIntake(Intake intake) {
+        return new LambdaCommand()
+                .named("stopIntake")
+                .requires(intake) // This requirement forces the 'run' command to cancel!
+                .setStart(() -> intake.MoveIn(0))
+                .setUpdate(() -> intake.MoveIn(0))
+                .setIsDone(() -> true) // Finishes instantly
+                .setInterruptible(true);
+    }
 }
+
 
 
 

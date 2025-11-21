@@ -43,6 +43,13 @@ public class TeleopMode extends NextFTCOpMode {
         options.whenTrue(DriveCommands.resetHeading(chassis));
         a.whenTrue(IntakeCommands.runIntake(intake, 0.8));
         b.whenTrue(IntakeCommands.runIntake(intake, -0.8));
+        chassis.setDefaultCommand(
+                DriveCommands.runWithJoysticks(
+                        chassis,
+                        () -> -gamepad1.left_stick_y,  // Forward (Negative because stick up is negative)
+                        () -> -gamepad1.left_stick_x,  // Strafe (Negative for standard Left=Positive coordinate)
+                        () -> -gamepad1.right_stick_x, // Turn (Negative for standard Left=Positive coordinate)
+                        false));
 
     }
     @Override
