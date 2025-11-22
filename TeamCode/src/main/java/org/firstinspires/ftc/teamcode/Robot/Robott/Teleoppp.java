@@ -1,11 +1,11 @@
-package org.firstinspires.ftc.teamcode.Robot.robot2;
+package org.firstinspires.ftc.teamcode.Robot.Robott;
 
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import static dev.nextftc.bindings.Bindings.button;
 
 import org.firstinspires.ftc.teamcode.Robot.DriveCommands.DriveCommands;
-import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.Vision;
+import org.firstinspires.ftc.teamcode.Robot.Robott.Subsystems2.Vision;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.Intake;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.IntakeCommands;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter.Shooter;
@@ -109,7 +109,7 @@ public class Teleoppp extends NextFTCOpMode {
 
         // Right bumper - Auto-aim and shoot with AprilTag
         right_bumper.whenTrue(
-                ShooterCommands.shootWithAutoAim(shooter, intake, vision)
+                ShooterCommands.runShooterPID(shooter,2000)
         );
         right_bumper.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
         right_bumper.whenBecomesFalse(IntakeCommands.stopIntake(intake));

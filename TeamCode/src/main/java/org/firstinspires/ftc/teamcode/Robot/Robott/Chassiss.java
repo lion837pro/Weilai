@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.Robot.robot2;
+package org.firstinspires.ftc.teamcode.Robot.Robott;
 
 import androidx.annotation.NonNull;
 
@@ -9,7 +9,8 @@ import com.qualcomm.robotcore.hardware.IMU;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.teamcode.Lib.STZLite.Geometry.Pose;
 import org.firstinspires.ftc.teamcode.Lib.STZLite.Geometry.Rotation;
-import org.firstinspires.ftc.teamcode.Robot.robot2.Subsystems2.ChassisConstants2;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.SuperChassis;
+import org.firstinspires.ftc.teamcode.Robot.Robott.Subsystems2.ChassisConstants2;
 
 import dev.nextftc.core.commands.Command;
 import dev.nextftc.core.commands.utility.NullCommand;
@@ -19,7 +20,7 @@ import dev.nextftc.core.units.Angle;
 import dev.nextftc.ftc.ActiveOpMode;
 import dev.nextftc.hardware.impl.MotorEx;
 
-public class Chassiss implements Subsystem {
+public class Chassiss extends SuperChassis implements Subsystem {
 
     public static final Chassiss INSTANCE = new Chassiss();
 
@@ -45,10 +46,10 @@ public class Chassiss implements Subsystem {
         br = new MotorEx(ChassisConstants2.brName);
 
         // Set directions
-        fl.setDirection(ChassisConstants2.flDirection);
-        fr.setDirection(ChassisConstants2.frDirection);
-        bl.setDirection(ChassisConstants2.blDirection);
-        br.setDirection(ChassisConstants2.brDirection);
+        fl.setDirection(ChassisConstants2.flDirection.ordinal());
+        fr.setDirection(ChassisConstants2.frDirection.ordinal());
+        bl.setDirection(ChassisConstants2.blDirection.ordinal());
+        br.setDirection(ChassisConstants2.brDirection.ordinal());
 
         // Set zero power behavior
         setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
