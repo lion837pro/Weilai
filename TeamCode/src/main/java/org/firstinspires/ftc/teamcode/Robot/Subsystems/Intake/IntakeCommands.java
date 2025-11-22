@@ -19,7 +19,7 @@ public class IntakeCommands {
                     intake.MoveIn(0);
 
                 }).
-                setIsDone(() -> true).
+                setIsDone(() -> false).
                 setInterruptible(true);
     }
     public static Command stopIntake(Intake intake) {

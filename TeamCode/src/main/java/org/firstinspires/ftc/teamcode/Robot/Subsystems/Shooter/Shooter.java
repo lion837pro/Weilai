@@ -37,8 +37,8 @@ public class Shooter implements Subsystem {
                 ShooterConstants.kS,
                 ShooterConstants.kV);
 
-        this.Sh1 = new MotorEx(ShooterConstants.shootername1);
-        this.Sh2 = new MotorEx(ShooterConstants.shootername2).reversed();
+        this.Sh1 = new MotorEx(ShooterConstants.shootername1).reversed();
+        this.Sh2 = new MotorEx(ShooterConstants.shootername2);
 
 
         Sh1.floatMode();

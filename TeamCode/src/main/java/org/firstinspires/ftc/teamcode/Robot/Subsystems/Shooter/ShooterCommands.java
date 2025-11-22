@@ -147,7 +147,7 @@ public class ShooterCommands {
                             }
                         })
                         .setStop(interrupted -> intake.MoveIn(0))
-                        .setIsDone(() -> false)
+                        .setIsDone(() -> true)
                         .setInterruptible(true)
         );
     }

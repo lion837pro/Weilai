@@ -75,7 +75,18 @@ public class TeleopMode extends NextFTCOpMode {
                 IntakeCommands.stopIntake(intake)
                         ));
 
-        left_bumper.whenBecomesTrue(DriveCommands.AlignByAprilTag(chassis));
+        left_bumper.whenBecomesTrue(
+                DriveCommands.alignWithJoysticks(chassis,
+                        () -> -gamepad1.left_stick_y,
+                        () -> -gamepad1.left_stick_x)
+        );
+
+        left_bumper.whenBecomesFalse(
+                DriveCommands.runWithJoysticks(chassis,
+                        () -> -gamepad1.left_stick_y,
+                        () -> -gamepad1.left_stick_x,
+                        () -> -gamepad1.right_stick_x,
+                        false));
 
             
         shooter.setDefaultCommand(
@@ -83,7 +94,7 @@ public class TeleopMode extends NextFTCOpMode {
                         () -> gamepad1.right_trigger));
 
 
-        // 4. Drive Command (This part is correct)
+
 
     }
     @Override

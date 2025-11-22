@@ -78,19 +78,21 @@ public class SuperChassis implements Subsystem {
 
         // 1. Get vertical offset (ty)
         double ty = getLLTy();
-
+        double h_target = VisionConstants.TARGET_HEIGHT;
+        double h_cam = VisionConstants.CAMERA_HEIGHT;
+        double angle_mount = VisionConstants.CAMERA_ANGLE;
         // 2. Calculate angle sum (Camera Mount Angle + Target Offset)
         double angleToGoalDegrees = VisionConstants.CAMERA_ANGLE + ty;
-        double angleToGoalRadians = Math.toRadians(angleToGoalDegrees);
 
-        // 3. Calculate difference in height
-        double heightDiff = VisionConstants.TARGET_HEIGHT - VisionConstants.CAMERA_HEIGHT;
+        double angle_total_rad = Math.toRadians(angle_mount + ty);
 
-        // 4. Calculate Distance
-        // Avoid division by zero if angle is perfectly flat (rare)
-        if (Math.abs(Math.tan(angleToGoalRadians)) < 0.001) return 0.0;
+        // Prevent division by zero if angle is perfectly 0
+        if (Math.abs(Math.tan(angle_total_rad)) < 0.001) return 0.0;
 
-        return heightDiff / Math.tan(angleToGoalRadians);
+        double distance = (h_target - h_cam) / Math.tan(angle_total_rad);
+
+        return distance;
+
     }
     public void setDefaultCommand(Command command){
         this.defaultCommand = command;

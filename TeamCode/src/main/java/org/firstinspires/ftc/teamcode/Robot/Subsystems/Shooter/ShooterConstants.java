@@ -12,8 +12,8 @@ public class ShooterConstants {
     public static double ticksPerSecondToRPM(double tps) {
         return (tps * 60.0) / TICKS_PER_REV;
     }
-    public  static  final  boolean shootername2inverted = true;
-    public  static  final  boolean shootername1inverted = false;
+    public  static  final  boolean shootername2inverted = false;
+    public  static  final  boolean shootername1inverted = true;
 
     public static final double kP = 0.0001;
     public static final double kS = 0.00035;
