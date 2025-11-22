@@ -12,15 +12,17 @@ import dev.nextftc.core.commands.delays.Delay;
 import dev.nextftc.core.commands.groups.ParallelGroup;
 import dev.nextftc.core.commands.groups.SequentialGroup;
 import dev.nextftc.extensions.pedro.FollowPath;
+import dev.nextftc.extensions.pedro.PedroComponent;
 import dev.nextftc.ftc.NextFTCOpMode;
 import static dev.nextftc.extensions.pedro.PedroComponent.follower;
 
 @Autonomous(name = "NextFTC Autonomous Program 2 Java")
-public class AutonomousModeTemplate extends NextFTCOpMode {
+public class ImadAutoTemplate extends NextFTCOpMode {
 
     private final SuperChassis chassis = SuperChassis.INSTANCE;
 
-    public AutonomousModeTemplate() {
+
+    public ImadAutoTemplate() {
         addComponents(chassis.asCOMPONENT());
     }
 

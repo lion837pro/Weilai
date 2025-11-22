@@ -40,6 +40,7 @@ public class ShooterCommands {
                 .setUpdate(() -> {
                     // Read the value from the trigger/joystick every loop
                     double power = powerSource.getAsDouble();
+                    if (Math.abs(power) < 0.1) power = 0;
                     shooter.set(power);
                 })
                 .setStop(interrupted -> shooter.set(0))
@@ -94,7 +95,7 @@ public class ShooterCommands {
 
                     // Safety Clamp (Don't go over motor max)
                     if (targetRPM > ShooterConstants.MAX_RPM) targetRPM = ShooterConstants.MAX_RPM;
-                    if (distance <= 0) targetRPM = 2000; // Default if no tag seen
+                    if (distance <= 0) targetRPM = 1300; // Default if no tag seen
 
                     // 3. Convert and Set
                     double targetTPS = ShooterConstants.rpmToTicksPerSecond(targetRPM);

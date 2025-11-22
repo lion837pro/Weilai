@@ -16,7 +16,7 @@ public class VisionConstants {
 
     // --- SHOOTING PHYSICS (TUNE THESE) ---
     // Example: At 0 inches, shoot 2000 RPM. For every inch away, add 50 RPM.
-    public static final double BASE_RPM = 2500.0;
-    public static final double RPM_PER_INCH = 50.0;
+    public static final double BASE_RPM = 1400.0;
+    public static final double RPM_PER_INCH = 15.0;
 
 }
