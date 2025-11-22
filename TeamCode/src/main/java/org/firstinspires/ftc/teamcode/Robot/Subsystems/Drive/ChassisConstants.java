@@ -63,7 +63,7 @@ public class ChassisConstants {
     );
 
     public static FollowerConstants followerConstants = new FollowerConstants()
-            .mass(7)
+            .mass(8.1)
             .forwardZeroPowerAcceleration(-25.9346931313679598)
             .lateralZeroPowerAcceleration(-67.342491844080064)
             .translationalPIDFCoefficients(new PIDFCoefficients(

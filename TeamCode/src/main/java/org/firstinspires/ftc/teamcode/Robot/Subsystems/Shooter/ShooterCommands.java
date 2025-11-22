@@ -11,15 +11,19 @@ import dev.nextftc.core.commands.groups.ParallelGroup;
 import dev.nextftc.core.commands.utility.LambdaCommand;
 
 public class ShooterCommands {
+
+    //helper commands
     public static Command smartFeed(Shooter shooter, Intake intake) {
         return new LambdaCommand()
                 .named("SmartFeed")
-                .requires(intake)
+                .requires(intake) // Takes control of Intake
                 .setUpdate(() -> {
+                    // 'atSetpoint()' checks if we reached the target
+                    // (even if that target is constantly changing!)
                     if (shooter.atSetpoint()) {
-                        intake.MoveIn(1.0);
+                        intake.MoveIn(1.0);// Fire!
                     } else {
-                        intake.MoveIn(0);
+                        intake.MoveIn(0);    // Wait for spin-up
                     }
                 })
                 .setStop(interrupted -> intake.MoveIn(0))
@@ -48,30 +52,7 @@ public class ShooterCommands {
      *
      * @param shooter The shooter subsystem
      */
-
-    public static Command shootWithFeed(Shooter shooter, Intake intake, double rpm) {
-        return new ParallelGroup(
-                // Command 1: Run the Shooter PID (Always running)
-                runShooterPID(shooter, rpm),
-                smartFeed(shooter, intake),
-                // Command 2: The "Smart Feeder"
-                new LambdaCommand()
-                        .named("SmartFeed")
-                        .requires(intake) // Controls the intake
-                        .setUpdate(() -> {
-                            // ONLY run the intake if the shooter is ready
-                            if (shooter.atSetpoint()) {
-                                intake.MoveIn(1.0); // Feed the ball (adjust power if needed)
-                            } else {
-                                intake.MoveIn(0);   // Wait for shooter to speed up
-                            }
-                        })
-                        .setStop(interrupted -> intake.MoveIn(0)) // Stop when button released
-                        .setIsDone(() -> false)
-                        .setInterruptible(true)
-        );
-    }
-
+//low level commands
     public static Command runShooterPID(Shooter shooter, double rpm) {
         double targetTPS = ShooterConstants.rpmToTicksPerSecond(rpm);
         return new LambdaCommand()
@@ -127,28 +108,22 @@ public class ShooterCommands {
                 .setIsDone(() -> false)
                 .setInterruptible(true);
     }
+
+    //auto shoots commands
+    public static Command shootWithFeed(Shooter shooter, Intake intake, double rpm) {
+        return new ParallelGroup(
+                // Command 1: Run the Shooter PID (Always running)
+                runShooterPID(shooter, rpm),
+                smartFeed(shooter, intake)
+                // Command 2: The "Smart Feeder
+        );
+    }
     public static Command shootWithAutoAim(Shooter shooter, Intake intake, SuperChassis chassis) {
         return new ParallelGroup(
                 // Command A: Run the Auto-Rev Logic (Reuse your existing command!)
                 autoRevShooter(shooter, chassis),
-                smartFeed(shooter, intake),
-
+                smartFeed(shooter, intake)
                 // Command B: The Smart Feeder
-                new LambdaCommand()
-                        .named("SmartFeedAuto")
-                        .requires(intake) // Takes control of Intake
-                        .setUpdate(() -> {
-                            // 'atSetpoint()' checks if we reached the target
-                            // (even if that target is constantly changing!)
-                            if (shooter.atSetpoint()) {
-                                intake.MoveIn(1.0); // Fire!
-                            } else {
-                                intake.MoveIn(0);   // Wait for spin-up
-                            }
-                        })
-                        .setStop(interrupted -> intake.MoveIn(0))
-                        .setIsDone(() -> true)
-                        .setInterruptible(true)
         );
     }
 

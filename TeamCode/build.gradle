@@ -34,5 +34,7 @@ dependencies {
     implementation 'dev.nextftc:hardware:1.0.1' // If you would like to use the hardware module
     implementation 'dev.nextftc.extensions:pedro:1.0.0'
     implementation "com.bylazar:limelightproxy:1.0.3"
+    implementation "com.bylazar:opmodecontrol:1.0.3"
+
 
 }

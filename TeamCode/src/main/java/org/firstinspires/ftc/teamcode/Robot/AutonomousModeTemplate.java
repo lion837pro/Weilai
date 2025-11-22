@@ -3,13 +3,8 @@ package org.firstinspires.ftc.teamcode.Robot;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.paths.PathChain;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
-import com.pedropathing.follower.Follower;
-import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
-import com.pedropathing.paths.Path;
-import com.pedropathing.paths.PathChain;
 //import org.firstinspires.ftc.teamcode.Lib.STZLite.Geometry.Pose;
-import org.firstinspires.ftc.teamcode.Lib.STZLite.Geometry.Rotation;
 import org.firstinspires.ftc.teamcode.Lib.STZLite.Math.Utils.Units;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.SuperChassis;
 import dev.nextftc.core.commands.Command;
@@ -21,11 +16,11 @@ import dev.nextftc.ftc.NextFTCOpMode;
 import static dev.nextftc.extensions.pedro.PedroComponent.follower;
 
 @Autonomous(name = "NextFTC Autonomous Program 2 Java")
-public class AutonomousMode extends NextFTCOpMode {
+public class AutonomousModeTemplate extends NextFTCOpMode {
 
     private final SuperChassis chassis = SuperChassis.INSTANCE;
 
-    public AutonomousMode() {
+    public AutonomousModeTemplate() {
         addComponents(chassis.asCOMPONENT());
     }
 
@@ -40,9 +35,10 @@ public class AutonomousMode extends NextFTCOpMode {
                 .addPath(new BezierLine(startPose, finishPose))
                 .setLinearHeadingInterpolation(startPose.getHeading(), finishPose.getHeading()).build();
 
+
     }
 
-    public Command secondRoutine() {
+    public Command mainRoutine() {
         return new SequentialGroup(
                 new ParallelGroup(
                         new FollowPath(move)
@@ -60,6 +56,6 @@ public class AutonomousMode extends NextFTCOpMode {
 
     @Override
     public void onStartButtonPressed() {
-        secondRoutine().invoke();
+        mainRoutine().invoke();
     }
 }

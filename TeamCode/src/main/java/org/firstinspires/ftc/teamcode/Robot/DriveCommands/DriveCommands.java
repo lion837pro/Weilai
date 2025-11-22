@@ -103,26 +103,22 @@ public class DriveCommands {
         return new LambdaCommand().
                 named("AlignByAprilTag").
                 requires(chassis).
-                setStart(()-> {
+                setStart(()-> {}).
+                setUpdate(()-> {if(chassis.isLLConnected() && chassis.getLIMELIGHT().getLatestResult().isValid())
+                        {
+                            double heading = chassis.getFOLLOWER().getPose().getHeading();
+                            double tx = Math.toRadians(chassis.getLLTx());
 
-                    if(chassis.isLLConnected() && chassis.getLIMELIGHT().getLatestResult().isValid())
-                    {
-                        double heading = chassis.getFOLLOWER().getPose().getHeading();
-                        double tx = Math.toRadians(chassis.getLLTx());
+                            // Nota: Revisa si necesitas restar o sumar dependiendo de tu configuración
+                            double target = heading - tx;
 
-                        // Nota: Revisa si necesitas restar o sumar dependiendo de tu configuración
-                        double target = heading - tx;
+                            // 2. Le damos la orden al Follower
+                            follower().turnTo(target);
 
-                        // 2. Le damos la orden al Follower
-                        follower().turnTo(target);
-
-                        ActiveOpMode.telemetry().addData("AutoAlign", "Targeting...");
-                    } else {
-                        ActiveOpMode.telemetry().addData("AutoAlign", "No Tag Found");
-                    }
-                }).
-                setUpdate(
-                        ()-> {}
+                            ActiveOpMode.telemetry().addData("AutoAlign", "Targeting...");
+                        } else {
+                            ActiveOpMode.telemetry().addData("AutoAlign", "No Tag Found");
+                        }}
                 ).
                 setStop(interrupted -> {
                     // Opcional: Si se interrumpe manualmente, frenar.
@@ -142,31 +138,25 @@ public class DriveCommands {
                 .requires(chassis) // Takes control of the wheels
                 .setStart(() -> {
                     // Optional: Switch pipeline or turn on light here
-                    follower().startTeleOpDrive();
-                })
+                    follower().startTeleOpDrive();})
                 .setUpdate(() -> {
                     double turnPower = 0;
-
                     // 1. Check if we see a tag
                     if (chassis.isLLConnected() && chassis.getLIMELIGHT().getLatestResult().isValid()) {
                         // 2. Get the error (How far off center are we?)
                         double tx = chassis.getLLTx();
-
                         // 3. Calculate Turn Power (Proportional Controller)
                         // If tx is Negative (Left), we want Positive Turn (Left).
                         // So we invert tx. Start with kP = 0.02 and tune from there.
                         turnPower = -tx * 0.025;
-
                         // (Optional) Add a minimum power to overcome friction if close
-                        if (Math.abs(tx) > 1.0 && Math.abs(turnPower) < 0.05) {
-                            turnPower = Math.copySign(0.05, turnPower);
+                        if (Math.abs(tx) > 1.0 && Math.abs(turnPower) < 0.12) {
+                            turnPower = Math.copySign(0.12, turnPower);
                         }
-
                         dev.nextftc.ftc.ActiveOpMode.telemetry().addData("AutoAlign", "Tracking... Err: %.2f", tx);
                     } else {
                         dev.nextftc.ftc.ActiveOpMode.telemetry().addData("AutoAlign", "NO TARGET");
                     }
-
                     // 4. Apply Power (Joysticks for XY, Limelight for Turn)
                     follower().setTeleOpDrive(forward.getAsDouble(), strafe.getAsDouble(), turnPower, false);
                 })

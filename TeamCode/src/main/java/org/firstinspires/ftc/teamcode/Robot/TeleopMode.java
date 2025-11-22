@@ -45,7 +45,7 @@ public class TeleopMode extends NextFTCOpMode {
 
         this.a = button(() -> gamepad1.a);
         this.b = button(() -> gamepad1.b);
-        //this.x = button(() -> gamepad1.x);
+        this.x = button(() -> gamepad1.x);
         this.right_bumper = button(() -> gamepad1.right_bumper);
         this.left_bumper = button(() -> gamepad1.left_bumper);
         this.options = button(() -> gamepad1.options);
@@ -59,12 +59,14 @@ public class TeleopMode extends NextFTCOpMode {
         b.whenBecomesTrue(IntakeCommands.runIntake(intake, -0.8));
         b.whenBecomesFalse(IntakeCommands.stopIntake(intake));
 
-        //x.whenBecomesTrue(ShooterCommands.runShooter(shooter, 0.8));
+        x.whenBecomesTrue(ShooterCommands.runShooterPID(shooter, 3000));
+        x.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
+
 
         chassis.setDefaultCommand(
                 DriveCommands.runWithJoysticks(chassis,
-                        () -> -gamepad1.left_stick_y,
-                        () -> -gamepad1.left_stick_x,
+                        () -> gamepad1.left_stick_y,
+                        () -> gamepad1.left_stick_x,
                         () -> -gamepad1.right_stick_x,
                         false));
 
@@ -75,23 +77,17 @@ public class TeleopMode extends NextFTCOpMode {
                 IntakeCommands.stopIntake(intake)
                         ));
 
-        left_bumper.whenBecomesTrue(
+        left_bumper.whenTrue(
                 DriveCommands.alignWithJoysticks(chassis,
                         () -> -gamepad1.left_stick_y,
                         () -> -gamepad1.left_stick_x)
         );
 
-        left_bumper.whenBecomesFalse(
-                DriveCommands.runWithJoysticks(chassis,
-                        () -> -gamepad1.left_stick_y,
-                        () -> -gamepad1.left_stick_x,
-                        () -> -gamepad1.right_stick_x,
-                        false));
 
             
-        shooter.setDefaultCommand(
+        /*shooter.setDefaultCommand(
                 ShooterCommands.runManualShooter(shooter,
-                        () -> gamepad1.right_trigger));
+                        () -> gamepad1.right_trigger)); */
 
 
 

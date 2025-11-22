@@ -15,10 +15,10 @@ public class ShooterConstants {
     public  static  final  boolean shootername2inverted = false;
     public  static  final  boolean shootername1inverted = true;
 
-    public static final double kP = 0.0001;
-    public static final double kS = 0.00035;
-    public static final double kV = 0.0001;
+    public static final double kP = 0.15;
+    public static final double kS = 0.00207;
+    public static final double kV = 0.0005;
 
-    public static final double velocityTolerance = 50;
+    public static final double velocityTolerance = 200;
 
 }

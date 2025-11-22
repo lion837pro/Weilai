@@ -1,6 +1,6 @@
 package org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive;
 
-import static org.firstinspires.ftc.robotcore.external.BlocksOpModeCompanion.telemetry;
+
 
 import com.pedropathing.follower.Follower;
 import com.qualcomm.hardware.limelightvision.LLResult;
@@ -9,7 +9,7 @@ import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
-import org.firstinspires.ftc.teamcode.Lib.STZLite.Drive.Chassis;
+//import org.firstinspires.ftc.teamcode.Lib.STZLite.Drive.Chassis;
 import org.firstinspires.ftc.teamcode.Lib.STZLite.Geometry.Pose;
 import org.firstinspires.ftc.teamcode.Lib.STZLite.Geometry.Rotation;
 
@@ -82,7 +82,7 @@ public class SuperChassis implements Subsystem {
         double h_cam = VisionConstants.CAMERA_HEIGHT;
         double angle_mount = VisionConstants.CAMERA_ANGLE;
         // 2. Calculate angle sum (Camera Mount Angle + Target Offset)
-        double angleToGoalDegrees = VisionConstants.CAMERA_ANGLE + ty;
+
 
         double angle_total_rad = Math.toRadians(angle_mount + ty);
 
@@ -248,6 +248,7 @@ public class SuperChassis implements Subsystem {
                 follower().setTeleOpDrive(0, 0, 0, false);
             }
         } catch (Exception e) {
+            dev.nextftc.ftc.ActiveOpMode.telemetry().addData("SUPERCHASSIS ERROR", e.getMessage());
         }
     }
 }

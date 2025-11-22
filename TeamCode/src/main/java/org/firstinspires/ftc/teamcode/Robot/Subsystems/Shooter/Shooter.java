@@ -18,7 +18,8 @@ public class Shooter implements Subsystem {
 
     private VelocityProfileController controller;
      MotorEx Sh1;
-     MotorEx Sh2    ;
+     MotorEx Sh2 ;
+
 
 
 
@@ -41,8 +42,8 @@ public class Shooter implements Subsystem {
         this.Sh2 = new MotorEx(ShooterConstants.shootername2);
 
 
-        Sh1.floatMode();
-        Sh2.floatMode();
+        Sh1.brakeMode();
+        Sh2.brakeMode();
     }
     @NonNull
     @Override
