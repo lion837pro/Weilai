@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.Robot;
 
+import androidx.annotation.NonNull;
+
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
@@ -7,6 +9,8 @@ import com.qualcomm.robotcore.hardware.IMU;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 
+import dev.nextftc.core.commands.Command;
+import dev.nextftc.core.commands.utility.NullCommand;
 import dev.nextftc.core.components.SubsystemComponent;
 import dev.nextftc.core.subsystems.Subsystem;
 import dev.nextftc.ftc.ActiveOpMode;
@@ -34,6 +38,7 @@ public class SimpleMecanumChassis implements Subsystem {
     private boolean fieldCentric = true;
     private double powerMultiplier = 1.0;
     private double headingOffset = 0.0;
+    private Command defaultCommand = new NullCommand();
 
     @Override
     public void initialize() {
@@ -44,7 +49,7 @@ public class SimpleMecanumChassis implements Subsystem {
         backRight = ActiveOpMode.hardwareMap().get(DcMotor.class, BR_MOTOR);
 
         // Set motor directions (adjust these based on your robot)
-        frontLeft.setDirection(DcMotorSimple.Direction.REVERSE);
+        frontLeft.setDirection(DcMotorSimple.Direction.FORWARD);
         frontRight.setDirection(DcMotorSimple.Direction.FORWARD);
         backLeft.setDirection(DcMotorSimple.Direction.REVERSE);
         backRight.setDirection(DcMotorSimple.Direction.FORWARD);
@@ -71,7 +76,14 @@ public class SimpleMecanumChassis implements Subsystem {
         // Reset heading
         resetHeading();
     }
-
+    @NonNull
+    @Override
+    public Command getDefaultCommand() {
+        return defaultCommand;
+    }
+    public void setDefaultCommand(Command command){
+        this.defaultCommand = command;
+    }
     @Override
     public void periodic() {
         // Update telemetry
@@ -225,14 +237,7 @@ public class SimpleMecanumChassis implements Subsystem {
     /**
      * Get motor currents for telemetry
      */
-    public double[] getMotorCurrents() {
-        return new double[] {
-                frontLeft.getCurrent(org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit.AMPS),
-                frontRight.getCurrent(org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit.AMPS),
-                backLeft.getCurrent(org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit.AMPS),
-                backRight.getCurrent(org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit.AMPS)
-        };
-    }
+
 
     public SubsystemComponent asCOMPONENT() {
         return new SubsystemComponent(INSTANCE);
