@@ -62,10 +62,10 @@ public class TeleopMode extends NextFTCOpMode {
         b.whenBecomesTrue(IntakeCommands.runIntake(intake, -0.6));
         b.whenBecomesFalse(IntakeCommands.stopIntake(intake));
 
-        x.whenTrue(ShooterCommands.runShooterPID(shooter, 2000));
+        x.whenTrue(ShooterCommands.runShooterPID(shooter, 1600));
         x.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
 
-        dpad.whenTrue(ShooterCommands.runShooterPID(shooter, -60));
+        dpad.whenTrue(ShooterCommands.runShooterPID(shooter, -600));
         dpad.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
 
 

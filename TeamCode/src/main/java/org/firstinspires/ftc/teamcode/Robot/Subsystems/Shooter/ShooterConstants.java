@@ -1,35 +1,40 @@
 package org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter;
 
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants;
+
 public class ShooterConstants {
     public static final String shootername1 = "Sh1";
     public static final String shootername2 = "Sh2";
 
     public static final double TICKS_PER_REV = 28.0; // For GoBilda Yellow Jacket 1:1
     public static final double MAX_RPM = 6000.0;
+
     public static double rpmToTicksPerSecond(double rpm) {
         return (rpm * TICKS_PER_REV) / 60.0;
     }
+
     public static double ticksPerSecondToRPM(double tps) {
         return (tps * 60.0) / TICKS_PER_REV;
     }
-    public  static  final  boolean shootername2inverted = false;
-    public  static  final  boolean shootername1inverted = true;
+
+    public static final boolean shootername2inverted = false;
+    public static final boolean shootername1inverted = true;
 
 
     // ===== ACCELERATION LIMITING (PREVENTS BELT SLIP) =====
     /**
      * Maximum rate of power change per second
-     *
+     * <p>
      * Examples:
      * - 1.0 = Takes 1 second to go from 0% to 100% power (very gentle)
      * - 1.5 = Takes 0.67 seconds (gentle, good for belt slip prevention)
      * - 2.0 = Takes 0.5 seconds (moderate)
      * - 3.0 = Takes 0.33 seconds (aggressive)
      * - 5.0 = Takes 0.2 seconds (very aggressive, may still slip)
-     *
+     * <p>
      * START WITH 1.5 and increase if it's too slow
      */
-    public static final double MAX_ACCELERATION = 0.1;
+    public static final double MAX_ACCELERATION = 0.75;
 
     // ===== TUNING MODE SELECTOR =====
     // Set this to true if you want velocity-dependent kV (advanced)
@@ -53,29 +58,25 @@ public class ShooterConstants {
 
     // ===== VELOCITY RANGES FOR AUTO-AIM =====
     // These help you understand what velocities correspond to what distances
-    public static final double MIN_SHOOTING_RPM = 2000;  // Minimum safe RPM
-    public static final double MAX_SHOOTING_RPM = 5500;  // Maximum safe RPM
+    public static final double MIN_SHOOTING_RPM = 1400;  // Minimum safe RPM
+    public static final double MAX_SHOOTING_RPM = 4500;  // Maximum safe RPM
 
     /**
      * Converts distance to expected RPM using your auto-aim formula
      * Useful for testing and visualization
      */
-    public static double distanceToRPM(double distanceInches) {
-        // From VisionConstants: RPM = BASE_RPM + (distance * RPM_PER_INCH)
-        // You can import VisionConstants or duplicate the formula here
-        double BASE_RPM = 1300.0;
-        double RPM_PER_INCH = 10.0;
-        return BASE_RPM + (distanceInches * RPM_PER_INCH);
-    }
 
+    // From VisionConstants: RPM = BASE_RPM + (distance * RPM_PER_INCH)
+    // You can import VisionConstants or duplicate the formula here
+    public static double distanceToRPM(double distanceInches) {
+        return VisionConstants.BASE_RPM + (distanceInches * VisionConstants.RPM_PER_INCH);
+    }
     /**
      * Estimates distance from RPM (inverse of above)
      * Useful for debugging
      */
     public static double rpmToDistance(double rpm) {
-        double BASE_RPM = 2500.0;
-        double RPM_PER_INCH = 50.0;
-        return (rpm - BASE_RPM) / RPM_PER_INCH;
+        return (rpm - VisionConstants.BASE_RPM) / VisionConstants.RPM_PER_INCH;
     }
 }
 

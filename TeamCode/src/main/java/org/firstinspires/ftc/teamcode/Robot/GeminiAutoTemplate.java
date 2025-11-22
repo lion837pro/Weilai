@@ -57,6 +57,8 @@ public class GeminiAutoTemplate extends NextFTCOpMode {
      * Build all paths for this autonomous routine.
      * This is called in onInit().
      */
+
+
     public void buildPaths() {
         // --- PASTE VISUALIZER CODE HERE ---
 
@@ -64,7 +66,7 @@ public class GeminiAutoTemplate extends NextFTCOpMode {
         apple = follower().pathBuilder()
                 .addPath(
                         // Note: Use new Point(x, y, Point.CARTESIAN) for best compatibility
-                        new BezierLine(new Pose(56.000, 8.000), new Pose(60.826, 14.786,))
+                        new BezierLine(new Pose(56.000, 8.000), new Pose(60.826, 14.78))
                 )
                 .setLinearHeadingInterpolation(Math.toRadians(90), Math.toRadians(118))
                 .build();

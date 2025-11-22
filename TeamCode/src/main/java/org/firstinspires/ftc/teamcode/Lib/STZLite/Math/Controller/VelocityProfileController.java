@@ -26,7 +26,7 @@ public class VelocityProfileController {
 
         double error = targetVelocity - currentVelocity;
 
-        double ff = kS + kV * targetVelocity;
+        double ff = Math.signum(targetVelocity) * kS + kV * targetVelocity;
         double p = kP * error;
 
         double output = ff + p;
