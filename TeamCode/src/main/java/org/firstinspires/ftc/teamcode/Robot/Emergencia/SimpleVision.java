@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.Robot;
+package org.firstinspires.ftc.teamcode.Robot.Emergencia;
 
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.LLResultTypes;
@@ -230,11 +230,11 @@ public class SimpleVision implements Subsystem {
      * Update robot orientation for Limelight MegaTag2
      * @param robotYaw Robot heading in radians
      */
-    public void updateRobotOrientation(double robotYaw) {
-        if (isConnected()) {
-            limelight.updateRobotOrientation(robotYaw);
-        }
-    }
+    //public void updateRobotOrientation(double robotYaw) {
+      //  if (isConnected()) {
+        //    limelight.updateRobotOrientation(robotYaw);
+        //}
+    //}
 
     /**
      * Get alignment error for centering on target

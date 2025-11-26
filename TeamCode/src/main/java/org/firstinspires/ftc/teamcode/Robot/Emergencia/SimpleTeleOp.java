@@ -1,12 +1,9 @@
-package org.firstinspires.ftc.teamcode.Robot;
+package org.firstinspires.ftc.teamcode.Robot.Emergencia;
 
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import static dev.nextftc.bindings.Bindings.button;
 
-import org.firstinspires.ftc.teamcode.Robot.SimpleDriveCommands;
-import org.firstinspires.ftc.teamcode.Robot.SimpleMecanumChassis;
-import org.firstinspires.ftc.teamcode.Robot.SimpleVision;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.Intake;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.IntakeCommands;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter.Shooter;
@@ -79,7 +76,7 @@ public class SimpleTeleOp extends NextFTCOpMode {
                         chassis,
                         () -> -gamepad1.left_stick_y,   // Forward (inverted for intuitive control)
                         () -> -gamepad1.left_stick_x,   // Strafe (inverted for intuitive control)
-                        () -> -gamepad1.right_stick_x   // Turn (inverted for intuitive control)
+                        () -> gamepad1.right_stick_x   // Turn (inverted for intuitive control)
                 )
         );
 
@@ -95,11 +92,9 @@ public class SimpleTeleOp extends NextFTCOpMode {
 
         // Left bumper - Auto-align drive (hold to drive with automatic AprilTag alignment)
         leftBumper.whenTrue(
-                SimpleDriveCommands.alignedDrive(
+                SimpleDriveCommands.alignToTag(
                         chassis,
-                        vision,
-                        () -> -gamepad1.left_stick_y,
-                        () -> -gamepad1.left_stick_x
+                        vision
                 )
         );
 
@@ -119,7 +114,7 @@ public class SimpleTeleOp extends NextFTCOpMode {
         shooter.setDefaultCommand(
                 ShooterCommands.runManualShooter(
                         shooter,
-                        () -> gamepad1.right_trigger * 0.8  // Scale down max power
+                        () -> gamepad1.right_trigger * 0.9  // Scale down max power
                 )
         );
 

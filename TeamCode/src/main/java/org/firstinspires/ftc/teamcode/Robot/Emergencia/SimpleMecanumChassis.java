@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.Robot;
+package org.firstinspires.ftc.teamcode.Robot.Emergencia;
 
 import androidx.annotation.NonNull;
 
@@ -55,7 +55,7 @@ public class SimpleMecanumChassis implements Subsystem {
         backRight.setDirection(DcMotorSimple.Direction.FORWARD);
 
         // Set zero power behavior
-        setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+    setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         // Set run modes
         frontLeft.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
@@ -67,8 +67,8 @@ public class SimpleMecanumChassis implements Subsystem {
         imu = ActiveOpMode.hardwareMap().get(IMU.class, "imu");
         IMU.Parameters parameters = new IMU.Parameters(
                 new RevHubOrientationOnRobot(
-                        RevHubOrientationOnRobot.LogoFacingDirection.UP,
-                        RevHubOrientationOnRobot.UsbFacingDirection.FORWARD
+                        RevHubOrientationOnRobot.LogoFacingDirection.RIGHT,
+                        RevHubOrientationOnRobot.UsbFacingDirection.UP
                 )
         );
         imu.initialize(parameters);

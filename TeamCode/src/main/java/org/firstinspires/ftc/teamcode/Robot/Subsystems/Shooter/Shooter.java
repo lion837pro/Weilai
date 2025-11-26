@@ -1,8 +1,6 @@
 package org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter;
 import androidx.annotation.NonNull;
 
-import com.qualcomm.robotcore.hardware.DcMotorSimple;
-
 import dev.nextftc.core.commands.Command;
 import dev.nextftc.core.commands.utility.NullCommand;
 import dev.nextftc.core.components.SubsystemComponent;
@@ -12,7 +10,7 @@ import dev.nextftc.hardware.impl.MotorEx;
 
 import org.firstinspires.ftc.teamcode.Lib.STZLite.Math.Controller.VelocityProfileController;
 import org.firstinspires.ftc.teamcode.Lib.STZLite.Math.Intervals.Interval;
-import org.firstinspires.ftc.teamcode.Lib.SlewRateLimiter;
+import org.firstinspires.ftc.teamcode.Lib.STZLite.Math.Controller.SlewRateLimiter;
 
 public class Shooter implements Subsystem {
     public static final Shooter INSTANCE = new Shooter();
