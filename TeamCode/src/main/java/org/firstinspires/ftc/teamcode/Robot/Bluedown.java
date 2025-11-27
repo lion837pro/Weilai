@@ -172,10 +172,10 @@ public class Bluedown extends NextFTCOpMode {
         ),
         new Delay(.5),
             IntakeCommands.stopIntake(intake),
-        new ParallelGroup(
-                new FollowPath(shoot1point)),
-        new Delay(.5),
-                ShooterCommands.shootWithFeed(shooter,intake,1800),
+        new SequentialGroup(
+                new FollowPath(shoot1point),
+        new Delay(.2),
+                ShooterCommands.shootWithAutoAim(shooter,intake,chassis),
         new ParallelGroup(
                 new FollowPath(infrontmidballs), ShooterCommands.stopShooter(shooter)
         ));
