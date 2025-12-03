@@ -60,7 +60,7 @@ public class TeleopMode extends NextFTCOpMode {
 
         // ===== INTAKE WITH SPINDEXER =====
         // A button: Smart intake with spindexer auto-indexing
-        a.whenBecomesTrue(SpindexerCommands.teleopIntake(spindexer, intake, 0.6));
+        a.whenBecomesTrue(SpindexerCommands.runIntakeWithSpindexer(spindexer, intake, 0.6));
         a.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
         a.whenBecomesFalse(IntakeCommands.stopIntake(intake));
 
@@ -79,7 +79,7 @@ public class TeleopMode extends NextFTCOpMode {
 
         // ===== FULL SHOOTING WITH SPINDEXER =====
         // Right bumper: Auto-aim shooting with spindexer indexing
-        right_bumper.whenTrue(SpindexerCommands.teleopShoot(shooter, spindexer, intake, chassis));
+        right_bumper.whenTrue(SpindexerCommands.teleopShootAutoAim(shooter, spindexer, intake, chassis));
         right_bumper.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
         right_bumper.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
         right_bumper.whenBecomesFalse(IntakeCommands.stopIntake(intake));
