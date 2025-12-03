@@ -60,7 +60,7 @@ public class TeleopMode extends NextFTCOpMode {
 
         // ===== INTAKE WITH SPINDEXER =====
         // A button: Smart intake with spindexer auto-indexing
-        a.whenBecomesTrue(SpindexerCommands.runIntakeWithSpindexer(spindexer, intake, 0.6));
+        a.whenBecomesTrue(IntakeCommands.runIntakeWithSpindexer(spindexer, intake, 0.6));
         a.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
         a.whenBecomesFalse(IntakeCommands.stopIntake(intake));
 
@@ -79,13 +79,13 @@ public class TeleopMode extends NextFTCOpMode {
 
         // ===== FULL SHOOTING WITH SPINDEXER =====
         // Right bumper: Auto-aim shooting with spindexer indexing
-        right_bumper.whenTrue(SpindexerCommands.teleopShootAutoAim(shooter, spindexer, intake, chassis));
+        right_bumper.whenTrue(ShooterCommands.teleopShootAutoAim(shooter, spindexer, intake, chassis));
         right_bumper.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
         right_bumper.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
         right_bumper.whenBecomesFalse(IntakeCommands.stopIntake(intake));
 
         // Y button: Fixed RPM shooting with spindexer (for when vision isn't available)
-        y.whenBecomesTrue(SpindexerCommands.teleopShootFixedRPM(shooter, spindexer, intake, 1800));
+        y.whenBecomesTrue(ShooterCommands.teleopShootFixedRPM(shooter, spindexer, intake, 1800));
         y.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
         y.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
         y.whenBecomesFalse(IntakeCommands.stopIntake(intake));
