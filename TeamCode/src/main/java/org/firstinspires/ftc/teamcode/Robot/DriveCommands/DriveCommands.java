@@ -7,6 +7,7 @@ import com.pedropathing.paths.Path;
 import org.firstinspires.ftc.teamcode.Lib.STZLite.Geometry.Rotation;
 import org.firstinspires.ftc.teamcode.Lib.STZLite.Math.Utils.Units;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.SuperChassis;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants;
 
 import java.util.function.DoubleSupplier;
 
@@ -98,70 +99,87 @@ public class DriveCommands {
     public static Command TurnBy(SuperChassis chassis, Rotation rotRads){
         return TurnBy(chassis, rotRads.toAngle());
     }
+
+    /**
+     * Auto-align to AprilTag (autonomous style - completes when aligned).
+     * ONLY aligns to tags 20 and 24 (alignment tags).
+     */
     public static Command AlignByAprilTag(SuperChassis chassis){
 
         return new LambdaCommand().
                 named("AlignByAprilTag").
                 requires(chassis).
                 setStart(()-> {}).
-                setUpdate(()-> {if(chassis.isLLConnected() && chassis.getLIMELIGHT().getLatestResult().isValid())
-                        {
-                            double heading = chassis.getFOLLOWER().getPose().getHeading();
-                            double tx = Math.toRadians(chassis.getLLTx());
+                setUpdate(()-> {
+                    if(chassis.isLLConnected() && chassis.getLIMELIGHT().getLatestResult().isValid()) {
+                        // Check if we see an alignment tag (ID 20 or 24)
+                        int detectedId = chassis.getLastDetectedId();
+                        if (!VisionConstants.isAlignmentTag(detectedId)) {
+                            ActiveOpMode.telemetry().addData("AutoAlign", "Tag %d not alignment tag (need 20/24)", detectedId);
+                            return;
+                        }
 
-                            // Nota: Revisa si necesitas restar o sumar dependiendo de tu configuración
-                            double target = heading - tx;
+                        double heading = chassis.getFOLLOWER().getPose().getHeading();
+                        double tx = Math.toRadians(chassis.getLLTx());
+                        double target = heading - tx;
 
-                            // 2. Le damos la orden al Follower
-                            follower().turnTo(target);
+                        follower().turnTo(target);
 
-                            ActiveOpMode.telemetry().addData("AutoAlign", "Targeting...");
-                        } else {
-                            ActiveOpMode.telemetry().addData("AutoAlign", "No Tag Found");
-                        }}
-                ).
+                        ActiveOpMode.telemetry().addData("AutoAlign", "Targeting Tag %d...", detectedId);
+                    } else {
+                        ActiveOpMode.telemetry().addData("AutoAlign", "No Tag Found");
+                    }
+                }).
                 setStop(interrupted -> {
-                    // Opcional: Si se interrumpe manualmente, frenar.
                     if(interrupted) chassis.stop();
                 }).
                 setIsDone(()-> {
-
                     return !follower().isBusy();
                 }).
                 setInterruptible(true);
-                }
+    }
 
-                //teleop apriltag not once
+    /**
+     * TeleOp auto-alignment with joystick movement.
+     * ONLY aligns to tags 20 and 24 (alignment tags).
+     * If no alignment tag visible, allows normal joystick control without auto-turn.
+     */
     public static Command alignWithJoysticks(SuperChassis chassis, DoubleSupplier forward, DoubleSupplier strafe) {
         return new LambdaCommand()
                 .named("AlignWithJoysticks")
-                .requires(chassis) // Takes control of the wheels
+                .requires(chassis)
                 .setStart(() -> {
-                    // Optional: Switch pipeline or turn on light here
-                    follower().startTeleOpDrive();})
+                    follower().startTeleOpDrive();
+                })
                 .setUpdate(() -> {
                     double turnPower = 0;
-                    // 1. Check if we see a tag
+
                     if (chassis.isLLConnected() && chassis.getLIMELIGHT().getLatestResult().isValid()) {
-                        // 2. Get the error (How far off center are we?)
-                        double tx = chassis.getLLTx();
-                        // 3. Calculate Turn Power (Proportional Controller)
-                        // If tx is Negative (Left), we want Positive Turn (Left).
-                        // So we invert tx. Start with kP = 0.02 and tune from there.
-                        turnPower = -tx * 0.025;
-                        // (Optional) Add a minimum power to overcome friction if close
-                        if (Math.abs(tx) > 1.0 && Math.abs(turnPower) < 0.12) {
-                            turnPower = Math.copySign(0.12, turnPower);
+                        // Check if we see an alignment tag (ID 20 or 24)
+                        int detectedId = chassis.getLastDetectedId();
+
+                        if (VisionConstants.isAlignmentTag(detectedId)) {
+                            // Valid alignment tag - do auto-align
+                            double tx = chassis.getLLTx();
+                            turnPower = -tx * 0.025;
+
+                            if (Math.abs(tx) > 1.0 && Math.abs(turnPower) < 0.12) {
+                                turnPower = Math.copySign(0.12, turnPower);
+                            }
+
+                            ActiveOpMode.telemetry().addData("AutoAlign", "Tag %d | Err: %.2f", detectedId, tx);
+                        } else {
+                            // Not an alignment tag - show info but don't auto-turn
+                            ActiveOpMode.telemetry().addData("AutoAlign", "Tag %d (not alignment)", detectedId);
                         }
-                        dev.nextftc.ftc.ActiveOpMode.telemetry().addData("AutoAlign", "Tracking... Err: %.2f", tx);
                     } else {
-                        dev.nextftc.ftc.ActiveOpMode.telemetry().addData("AutoAlign", "NO TARGET");
+                        ActiveOpMode.telemetry().addData("AutoAlign", "NO TARGET");
                     }
-                    // 4. Apply Power (Joysticks for XY, Limelight for Turn)
+
                     follower().setTeleOpDrive(forward.getAsDouble(), strafe.getAsDouble(), turnPower, false);
                 })
                 .setStop(interrupted -> chassis.stop())
-                .setIsDone(() -> false) // Run forever until button is released
+                .setIsDone(() -> false)
                 .setInterruptible(true);
     }
 }
