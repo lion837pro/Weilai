@@ -20,8 +20,7 @@ import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants.Bal
  * - Shot green ball: Green (static)
  * - Shot purple ball: Red (static)
  * - Ready: Green
- * - Idle
- * : Off
+ * - Idle: Off
  */
 public class RobotFeedback {
 
