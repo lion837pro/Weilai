@@ -60,6 +60,7 @@ public class Spindexer implements Subsystem {
     private boolean hasTarget = false;         // Position control active?
     private double targetTicks = 0;            // Target encoder position
     private double currentPower = 0;
+    private double encoderOffset = 0;          // Virtual encoder reset offset
 
     // Shooter offset state (for mechanical clearance)
     private boolean isInOffsetPosition = false;  // True when spindexer is offset for shooter spin-up
@@ -81,7 +82,7 @@ public class Spindexer implements Subsystem {
             motor.reversed();
         }
         motor.brakeMode();
-        motor.resetEncoder();
+        resetEncoder();  // Virtual encoder reset
 
         // Initialize limit switch (magnetic)
         try {
@@ -276,7 +277,11 @@ public class Spindexer implements Subsystem {
         }
 
         // If no green at correct slot, shoot any loaded ball
-        return goToNextShooterPosition() != null ? true : false;
+        if (getBallCount() > 0) {
+            goToNextShooterPosition();
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -370,7 +375,7 @@ public class Spindexer implements Subsystem {
      */
     public void finishHoming() {
         setPower(0);
-        motor.resetEncoder();
+        resetEncoder();  // Virtual encoder reset
         currentPosition = 0;
         targetPosition = 0;
         isHomed = true;
@@ -569,10 +574,17 @@ public class Spindexer implements Subsystem {
     }
 
     /**
-     * Get current encoder ticks
+     * Get current encoder ticks (adjusted for virtual reset)
      */
     public double getCurrentTicks() {
-        return motor.getCurrentPosition();
+        return motor.getCurrentPosition() - encoderOffset;
+    }
+
+    /**
+     * Virtual encoder reset - stores current position as offset
+     */
+    private void resetEncoder() {
+        encoderOffset = motor.getCurrentPosition();
     }
 
     /**
