@@ -4,6 +4,7 @@ import androidx.annotation.NonNull;
 
 import com.qualcomm.robotcore.hardware.ColorRangeSensor;
 import com.qualcomm.robotcore.hardware.DigitalChannel;
+import com.qualcomm.robotcore.hardware.NormalizedRGBA;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import dev.nextftc.core.commands.Command;
@@ -14,13 +15,16 @@ import dev.nextftc.ftc.ActiveOpMode;
 import dev.nextftc.ftc.hardware.HardwareManager;
 import dev.nextftc.hardware.impl.MotorEx;
 
-import org.firstinspires.ftc.teamcode.Lib.STZLite.Math.Intervals.Interval;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants.BallColor;
 
 /**
  * Spindexer (Spinning Indexer) Subsystem
  *
  * A rotating indexer that holds 3 balls with 6 preset positions.
  * Uses a magnetic limit switch for homing and 2 color sensors for ball detection.
+ * Tracks ball colors (GREEN or PURPLE) for automatic color sorting with AprilTags.
  *
  * Slot mapping:
  * - Slot 0: Positions 0 (intake) and 1 (shooter)
@@ -42,7 +46,16 @@ public class Spindexer implements Subsystem {
     private int targetPosition = 0;            // Target position index (0-5)
     private boolean isHomed = false;           // Has the spindexer been homed?
     private boolean isMoving = false;          // Is the spindexer currently moving?
-    private boolean[] ballsLoaded = new boolean[3];  // Track balls in each slot (0, 1, 2)
+
+    // Ball color tracking (replaces simple boolean tracking)
+    private BallColor[] ballColors = new BallColor[3];  // Color of ball in each slot
+    private boolean[] ballsLoaded = new boolean[3];     // Whether slot has a ball
+
+    // Last detected color (for intake)
+    private BallColor lastDetectedColor = BallColor.UNKNOWN;
+    private int lastDetectedRed = 0;
+    private int lastDetectedGreen = 0;
+    private int lastDetectedBlue = 0;
 
     // Control state
     private boolean hasTarget = false;         // Position control active?
@@ -94,6 +107,7 @@ public class Spindexer implements Subsystem {
         // Initialize ball tracking
         for (int i = 0; i < 3; i++) {
             ballsLoaded[i] = false;
+            ballColors[i] = BallColor.UNKNOWN;
         }
     }
 
@@ -109,7 +123,7 @@ public class Spindexer implements Subsystem {
 
     @Override
     public void periodic() {
-        // Update ball detection from color sensors
+        // Update ball detection and color from color sensors
         updateBallDetection();
 
         // Position control loop
@@ -227,6 +241,42 @@ public class Spindexer implements Subsystem {
     }
 
     /**
+     * Move to shooter position for a specific ball color.
+     * Finds the first slot with that color and goes to its shooter position.
+     * Returns true if found, false if no ball of that color exists.
+     */
+    public boolean goToShooterPositionForColor(BallColor targetColor) {
+        for (int slot = 0; slot < SpindexerConstants.SLOTS_COUNT; slot++) {
+            if (ballsLoaded[slot] && ballColors[slot] == targetColor) {
+                int shooterPos = SpindexerConstants.getShooterPosition(slot);
+                goToPosition(shooterPos);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Move to shooter position for the slot that matches the AprilTag pattern.
+     * For tag 21 (G,P,P): shoots slot 0 first (green)
+     * For tag 22 (P,G,P): shoots slot 1 first (green)
+     * For tag 23 (P,P,G): shoots slot 2 first (green)
+     */
+    public boolean goToShooterPositionForTag(int tagId) {
+        int greenSlot = VisionConstants.getGreenSlotForTag(tagId);
+        if (greenSlot == -1) return false;
+
+        // First priority: shoot the GREEN ball at the correct position
+        if (ballsLoaded[greenSlot] && ballColors[greenSlot] == BallColor.GREEN) {
+            goToPosition(SpindexerConstants.getShooterPosition(greenSlot));
+            return true;
+        }
+
+        // If no green at correct slot, shoot any loaded ball
+        return goToNextShooterPosition() != null ? true : false;
+    }
+
+    /**
      * Index forward by one position (60 degrees)
      */
     public void indexForward() {
@@ -276,43 +326,72 @@ public class Spindexer implements Subsystem {
         isMoving = false;
     }
 
-    // ===== BALL DETECTION =====
+    // ===== BALL DETECTION AND COLOR =====
 
     /**
-     * Update ball detection from color sensors
+     * Update ball detection and color from color sensors
      */
     private void updateBallDetection() {
-        // Color sensor 1 detects ball at current slot when at intake position
-        if (colorSensor1 != null && isAtIntakePosition()) {
-            int slot = currentPosition / 2;  // 0->0, 2->1, 4->2
-            boolean detected = detectBallAtSensor(colorSensor1);
-            if (detected && !ballsLoaded[slot]) {
-                ballsLoaded[slot] = true;  // Ball loaded
-            }
+        if (colorSensor1 == null) return;
+
+        // Only detect at intake position
+        if (!isAtIntakePosition()) return;
+
+        int slot = currentPosition / 2;  // 0->0, 2->1, 4->2
+
+        // Check proximity for ball presence
+        double distance = colorSensor1.getDistance(DistanceUnit.MM);
+        boolean ballDetected = distance < SpindexerConstants.COLOR_PROXIMITY_THRESHOLD;
+
+        if (ballDetected && !ballsLoaded[slot]) {
+            // New ball detected - read its color
+            NormalizedRGBA colors = colorSensor1.getNormalizedColors();
+
+            // Convert normalized (0-1) to 0-255 range
+            int red = (int)(colors.red * 255);
+            int green = (int)(colors.green * 255);
+            int blue = (int)(colors.blue * 255);
+
+            // Store for telemetry
+            lastDetectedRed = red;
+            lastDetectedGreen = green;
+            lastDetectedBlue = blue;
+
+            // Determine color
+            BallColor detectedColor = SpindexerConstants.detectBallColor(red, green, blue);
+            lastDetectedColor = detectedColor;
+
+            // Store ball info
+            ballsLoaded[slot] = true;
+            ballColors[slot] = detectedColor;
         }
-
-        // Color sensor 2 can be used for additional detection or verification
-        // Implementation depends on physical sensor placement
     }
 
     /**
-     * Check if a ball is detected at a color sensor
+     * Manually set a ball's color in a slot
      */
-    private boolean detectBallAtSensor(ColorRangeSensor sensor) {
-        if (sensor == null) return false;
-
-        // Use proximity/distance for detection
-        double proximity = sensor.getDistance(org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit.MM);
-        return proximity < SpindexerConstants.COLOR_PROXIMITY_THRESHOLD;
+    public void setBallColor(int slot, BallColor color) {
+        if (slot >= 0 && slot < SpindexerConstants.SLOTS_COUNT) {
+            ballColors[slot] = color;
+            ballsLoaded[slot] = (color != BallColor.UNKNOWN);
+        }
     }
 
     /**
-     * Manually mark a slot as having a ball
+     * Manually mark a slot as having a ball with specified color
      */
-    public void setBallLoaded(int slot, boolean loaded) {
+    public void setBallLoaded(int slot, boolean loaded, BallColor color) {
         if (slot >= 0 && slot < SpindexerConstants.SLOTS_COUNT) {
             ballsLoaded[slot] = loaded;
+            ballColors[slot] = loaded ? color : BallColor.UNKNOWN;
         }
+    }
+
+    /**
+     * Manually mark a slot as having a ball (unknown color)
+     */
+    public void setBallLoaded(int slot, boolean loaded) {
+        setBallLoaded(slot, loaded, BallColor.UNKNOWN);
     }
 
     /**
@@ -322,6 +401,7 @@ public class Spindexer implements Subsystem {
         if (isAtShooterPosition()) {
             int slot = (currentPosition - 1) / 2;  // 1->0, 3->1, 5->2
             ballsLoaded[slot] = false;
+            ballColors[slot] = BallColor.UNKNOWN;
         }
     }
 
@@ -355,6 +435,46 @@ public class Spindexer implements Subsystem {
     public boolean hasBall(int slot) {
         if (slot < 0 || slot >= SpindexerConstants.SLOTS_COUNT) return false;
         return ballsLoaded[slot];
+    }
+
+    /**
+     * Get the color of the ball in a slot
+     */
+    public BallColor getBallColor(int slot) {
+        if (slot < 0 || slot >= SpindexerConstants.SLOTS_COUNT) return BallColor.UNKNOWN;
+        return ballColors[slot];
+    }
+
+    /**
+     * Get all ball colors as an array
+     */
+    public BallColor[] getAllBallColors() {
+        return ballColors.clone();
+    }
+
+    /**
+     * Check if we have a ball of a specific color
+     */
+    public boolean hasBallOfColor(BallColor color) {
+        for (int i = 0; i < SpindexerConstants.SLOTS_COUNT; i++) {
+            if (ballsLoaded[i] && ballColors[i] == color) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Count balls of a specific color
+     */
+    public int countBallsOfColor(BallColor color) {
+        int count = 0;
+        for (int i = 0; i < SpindexerConstants.SLOTS_COUNT; i++) {
+            if (ballsLoaded[i] && ballColors[i] == color) {
+                count++;
+            }
+        }
+        return count;
     }
 
     /**
@@ -410,6 +530,13 @@ public class Spindexer implements Subsystem {
         return motor.getVelocity();
     }
 
+    /**
+     * Get the last detected color (from most recent ball intake)
+     */
+    public BallColor getLastDetectedColor() {
+        return lastDetectedColor;
+    }
+
     // ===== LOW-LEVEL CONTROL =====
 
     /**
@@ -449,21 +576,37 @@ public class Spindexer implements Subsystem {
                     currentPosition, isAtIntakePosition() ? "INTAKE" : "SHOOTER");
             ActiveOpMode.telemetry().addData("Target Position", targetPosition);
             ActiveOpMode.telemetry().addData("Encoder Ticks", "%.1f", getCurrentTicks());
-            ActiveOpMode.telemetry().addData("Target Ticks", "%.1f", targetTicks);
-            ActiveOpMode.telemetry().addData("Error", "%.1f", targetTicks - getCurrentTicks());
-            ActiveOpMode.telemetry().addData("Power", "%.2f", currentPower);
             ActiveOpMode.telemetry().addData("At Position", atPosition() ? "YES" : "NO");
             ActiveOpMode.telemetry().addData("Limit Switch", isAtHome() ? "TRIGGERED" : "Open");
 
-            // Ball status
+            // Ball status with colors
+            String slot0 = ballsLoaded[0] ? colorToSymbol(ballColors[0]) : "○";
+            String slot1 = ballsLoaded[1] ? colorToSymbol(ballColors[1]) : "○";
+            String slot2 = ballsLoaded[2] ? colorToSymbol(ballColors[2]) : "○";
             ActiveOpMode.telemetry().addData("Balls", "[%s %s %s] = %d",
-                    ballsLoaded[0] ? "●" : "○",
-                    ballsLoaded[1] ? "●" : "○",
-                    ballsLoaded[2] ? "●" : "○",
-                    getBallCount());
+                    slot0, slot1, slot2, getBallCount());
+
+            // Color counts
+            ActiveOpMode.telemetry().addData("Green/Purple",
+                    "%d G, %d P",
+                    countBallsOfColor(BallColor.GREEN),
+                    countBallsOfColor(BallColor.PURPLE));
+
+            // Last detected color info
+            ActiveOpMode.telemetry().addData("Last Color", "%s (R:%d G:%d B:%d)",
+                    lastDetectedColor.toString(),
+                    lastDetectedRed, lastDetectedGreen, lastDetectedBlue);
 
         } catch (Exception e) {
             // Failsafe if telemetry isn't ready
+        }
+    }
+
+    private String colorToSymbol(BallColor color) {
+        switch (color) {
+            case GREEN: return "G";
+            case PURPLE: return "P";
+            default: return "?";
         }
     }
 

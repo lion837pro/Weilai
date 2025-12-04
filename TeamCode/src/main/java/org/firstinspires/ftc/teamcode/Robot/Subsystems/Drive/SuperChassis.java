@@ -194,6 +194,35 @@ public class SuperChassis implements Subsystem {
         return false;
     }
 
+    /**
+     * Get the last detected AprilTag ID.
+     * Returns -1 if no tag is currently detected.
+     */
+    public int getLastDetectedId() {
+        return lastDetectedId;
+    }
+
+    /**
+     * Check if an alignment tag (20 or 24) is currently visible.
+     */
+    public boolean hasAlignmentTag() {
+        return VisionConstants.isAlignmentTag(lastDetectedId);
+    }
+
+    /**
+     * Check if a color sorting tag (21, 22, or 23) is currently visible.
+     */
+    public boolean hasColorSortTag() {
+        return VisionConstants.isColorSortTag(lastDetectedId);
+    }
+
+    /**
+     * Get the current fiducials list for advanced processing.
+     */
+    public List<LLResultTypes.FiducialResult> getCurrentFiducials() {
+        return currentFiducials;
+    }
+
     public boolean isLLConnected() {
         return limelight != null && limelight.isConnected();
     }

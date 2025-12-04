@@ -134,4 +134,59 @@ public class ShooterCommands {
                 SpindexerCommands.smartFeedWithSpindexerContinuous(shooter, spindexer, intake)
         );
     }
+
+    // ========================================================================
+    // COLOR-SORTED SHOOTING SEQUENCES (uses AprilTag IDs 21, 22, 23)
+    // ========================================================================
+
+    /**
+     * Shoot all balls with color sorting at fixed RPM.
+     * Uses AprilTag IDs 21, 22, 23 to determine shooting order:
+     * - Tag 21: Green first (slot 0)
+     * - Tag 22: Green first (slot 1)
+     * - Tag 23: Green first (slot 2)
+     */
+    public static Command shootAllBallsColorSorted(Shooter shooter, Spindexer spindexer,
+                                                    Intake intake, SuperChassis chassis, double rpm) {
+        return new ParallelGroup(
+                runShooterPID(shooter, rpm),
+                SpindexerCommands.smartFeedColorSorted(shooter, spindexer, intake, chassis)
+        );
+    }
+
+    /**
+     * Shoot all balls with color sorting and auto-aim.
+     * Combines distance-based RPM with AprilTag color sorting.
+     */
+    public static Command shootAllBallsColorSortedAutoAim(Shooter shooter, Spindexer spindexer,
+                                                           Intake intake, SuperChassis chassis) {
+        return new ParallelGroup(
+                autoRevShooter(shooter, chassis),
+                SpindexerCommands.smartFeedColorSorted(shooter, spindexer, intake, chassis)
+        );
+    }
+
+    /**
+     * TeleOp color-sorted shooting at fixed RPM.
+     * Continuously monitors AprilTag changes and adjusts shooting order.
+     */
+    public static Command teleopShootColorSorted(Shooter shooter, Spindexer spindexer,
+                                                  Intake intake, SuperChassis chassis, double rpm) {
+        return new ParallelGroup(
+                runShooterPID(shooter, rpm),
+                SpindexerCommands.smartFeedColorSortedContinuous(shooter, spindexer, intake, chassis)
+        );
+    }
+
+    /**
+     * TeleOp color-sorted shooting with auto-aim.
+     * Best option for competition - combines distance-based RPM with color sorting.
+     */
+    public static Command teleopShootColorSortedAutoAim(Shooter shooter, Spindexer spindexer,
+                                                         Intake intake, SuperChassis chassis) {
+        return new ParallelGroup(
+                autoRevShooter(shooter, chassis),
+                SpindexerCommands.smartFeedColorSortedContinuous(shooter, spindexer, intake, chassis)
+        );
+    }
 }

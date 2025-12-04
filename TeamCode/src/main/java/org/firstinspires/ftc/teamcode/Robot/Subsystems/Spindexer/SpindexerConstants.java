@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.Robot.Subsystems.Spindexer;
 
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants;
+
 /**
  * Constants for the Spindexer (Spinning Indexer) subsystem.
  *
@@ -23,8 +25,8 @@ public class SpindexerConstants {
     // ===== HARDWARE NAMES =====
     public static final String MOTOR_NAME = "spindexer";
     public static final String LIMIT_SWITCH_NAME = "spindexerLimit";  // Magnetic limit switch for homing
-    public static final String COLOR_SENSOR_1_NAME = "colorSensor1";  // Detects ball at position 0/1
-    public static final String COLOR_SENSOR_2_NAME = "colorSensor2";  // Detects ball at position 2/3
+    public static final String COLOR_SENSOR_1_NAME = "colorSensor1";  // Detects ball at intake
+    public static final String COLOR_SENSOR_2_NAME = "colorSensor2";  // Secondary sensor (optional)
 
     // ===== MOTOR CONFIGURATION =====
     public static final boolean MOTOR_INVERTED = false;
@@ -97,13 +99,58 @@ public class SpindexerConstants {
     public static final double BALL_DETECT_DEBOUNCE_MS = 50; // Debounce for color sensor readings
 
     // ===== COLOR SENSOR THRESHOLDS =====
-    // These detect if a ball is present in a slot
-    // Tune these based on your specific balls and sensors
-    public static final int COLOR_PROXIMITY_THRESHOLD = 150;  // Proximity value indicating ball present
+    // Proximity threshold for ball detection (MM)
+    public static final double COLOR_PROXIMITY_THRESHOLD = 150;  // Ball present if < this distance
 
-    // Ball color detection (for sorting if needed)
-    public static final int RED_THRESHOLD = 200;   // Red channel value for red ball
-    public static final int BLUE_THRESHOLD = 200;  // Blue channel value for blue ball
+    // ===== BALL COLOR DETECTION THRESHOLDS =====
+    // These values need tuning based on your specific color sensor and ball colors
+    // The color sensor returns RGB values (0-255 range typically)
+
+    // GREEN ball detection thresholds
+    // Green balls typically have high green channel and lower red/blue
+    public static final int GREEN_MIN_G = 100;  // Minimum green channel value
+    public static final int GREEN_MAX_R = 150;  // Maximum red channel for green ball
+    public static final int GREEN_MAX_B = 150;  // Maximum blue channel for green ball
+    public static final double GREEN_RATIO_THRESHOLD = 1.2;  // G must be this much higher than R and B
+
+    // PURPLE ball detection thresholds
+    // Purple balls have high red and blue, lower green
+    public static final int PURPLE_MIN_R = 80;   // Minimum red channel value
+    public static final int PURPLE_MIN_B = 80;   // Minimum blue channel value
+    public static final int PURPLE_MAX_G = 120;  // Maximum green channel for purple ball
+    public static final double PURPLE_RB_MIN_RATIO = 0.7;  // R/B ratio should be close (0.7-1.4)
+    public static final double PURPLE_RB_MAX_RATIO = 1.4;
+
+    /**
+     * Determine ball color from RGB values.
+     * Uses VisionConstants.BallColor enum.
+     */
+    public static VisionConstants.BallColor detectBallColor(int red, int green, int blue) {
+        // Check for GREEN ball first
+        // Green has high green channel, and green is significantly higher than red and blue
+        if (green >= GREEN_MIN_G &&
+            red <= GREEN_MAX_R &&
+            blue <= GREEN_MAX_B &&
+            green > red * GREEN_RATIO_THRESHOLD &&
+            green > blue * GREEN_RATIO_THRESHOLD) {
+            return VisionConstants.BallColor.GREEN;
+        }
+
+        // Check for PURPLE ball
+        // Purple has high red and blue, lower green
+        if (red >= PURPLE_MIN_R &&
+            blue >= PURPLE_MIN_B &&
+            green <= PURPLE_MAX_G) {
+            // Check that red and blue are close to each other (ratio check)
+            double rbRatio = (double) red / Math.max(blue, 1);
+            if (rbRatio >= PURPLE_RB_MIN_RATIO && rbRatio <= PURPLE_RB_MAX_RATIO) {
+                return VisionConstants.BallColor.PURPLE;
+            }
+        }
+
+        // Can't determine color
+        return VisionConstants.BallColor.UNKNOWN;
+    }
 
     // ===== DIRECTION OPTIMIZATION =====
     // When indexing, choose shortest rotation direction
