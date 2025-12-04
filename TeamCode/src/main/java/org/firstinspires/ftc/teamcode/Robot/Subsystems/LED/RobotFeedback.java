@@ -1,14 +1,26 @@
 package org.firstinspires.ftc.teamcode.Robot.Subsystems.LED;
 
 import com.qualcomm.robotcore.hardware.Gamepad;
+import com.qualcomm.robotcore.util.ElapsedTime;
 
+import org.firstinspires.ftc.teamcode.Robot.Hardware.REV312010;
+import org.firstinspires.ftc.teamcode.Robot.Hardware.REV312010.LEDState;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants.BallColor;
 
 /**
  * Robot Feedback utility class
  *
  * Provides combined LED and gamepad rumble feedback for robot events.
- * Call these methods when events occur to provide driver feedback.
+ * Uses REV312010 (REV-31-2010) 2-color LED indicator.
+ *
+ * Color mapping:
+ * - Intaking: Amber
+ * - Spinning up green ball: Green (flashing)
+ * - Spinning up purple ball: Red (flashing)
+ * - Shot green ball: Green (static)
+ * - Shot purple ball: Red (static)
+ * - Ready: Green
+ * - Idle: Off
  */
 public class RobotFeedback {
 
@@ -22,11 +34,20 @@ public class RobotFeedback {
     public static final double RUMBLE_MEDIUM = 0.6;
     public static final double RUMBLE_STRONG = 1.0;
 
-    private final LED led;
+    // Strobe timing
+    private static final long STROBE_INTERVAL_MS = 100;
+
+    private final REV312010 led;
     private Gamepad gamepad1;
     private Gamepad gamepad2;
 
-    public RobotFeedback(LED led) {
+    // Strobe state
+    private boolean isStrobing = false;
+    private LEDState strobeColor = LEDState.kOFF;
+    private boolean strobeOn = false;
+    private ElapsedTime strobeTimer = new ElapsedTime();
+
+    public RobotFeedback(REV312010 led) {
         this.led = led;
     }
 
@@ -39,11 +60,25 @@ public class RobotFeedback {
     }
 
     /**
+     * Call this in the periodic/update loop to handle strobe effect
+     */
+    public void update() {
+        if (isStrobing && led != null) {
+            if (strobeTimer.milliseconds() >= STROBE_INTERVAL_MS) {
+                strobeTimer.reset();
+                strobeOn = !strobeOn;
+                led.set(strobeOn ? strobeColor : LEDState.kOFF);
+            }
+        }
+    }
+
+    /**
      * Call when intake mode is started
      */
     public void onIntakeStart() {
+        isStrobing = false;
         if (led != null) {
-            led.setIntaking();
+            led.set(LEDState.kAMBER);
         }
     }
 
@@ -51,9 +86,10 @@ public class RobotFeedback {
      * Call when a ball is successfully intaked
      */
     public void onIntakeSuccess() {
-        // LED feedback
+        // LED feedback - brief green flash
+        isStrobing = false;
         if (led != null) {
-            led.flashIntakeSuccess();
+            led.set(LEDState.kGREEN);
         }
 
         // Gamepad rumble
@@ -64,8 +100,9 @@ public class RobotFeedback {
      * Call when intake stops
      */
     public void onIntakeStop() {
+        isStrobing = false;
         if (led != null) {
-            led.setIdle();
+            led.set(LEDState.kOFF);
         }
     }
 
@@ -74,7 +111,23 @@ public class RobotFeedback {
      */
     public void onShooterSpinUp(BallColor nextBallColor) {
         if (led != null) {
-            led.setSpinningUp(nextBallColor);
+            // Start strobing in ball color
+            isStrobing = true;
+            strobeTimer.reset();
+            strobeOn = true;
+
+            switch (nextBallColor) {
+                case GREEN:
+                    strobeColor = LEDState.kGREEN;
+                    break;
+                case PURPLE:
+                    strobeColor = LEDState.kRED;
+                    break;
+                default:
+                    strobeColor = LEDState.kAMBER;
+                    break;
+            }
+            led.set(strobeColor);
         }
     }
 
@@ -82,9 +135,20 @@ public class RobotFeedback {
      * Call when a ball is shot
      */
     public void onBallShot(BallColor ballColor) {
-        // LED feedback
+        // LED feedback - static ball color
+        isStrobing = false;
         if (led != null) {
-            led.setShotComplete(ballColor);
+            switch (ballColor) {
+                case GREEN:
+                    led.set(LEDState.kGREEN);
+                    break;
+                case PURPLE:
+                    led.set(LEDState.kRED);
+                    break;
+                default:
+                    led.set(LEDState.kAMBER);
+                    break;
+            }
         }
 
         // Gamepad rumble
@@ -95,8 +159,9 @@ public class RobotFeedback {
      * Call when shooter sequence stops
      */
     public void onShooterStop() {
+        isStrobing = false;
         if (led != null) {
-            led.setIdle();
+            led.set(LEDState.kOFF);
         }
     }
 
@@ -105,8 +170,9 @@ public class RobotFeedback {
      */
     public void onSpindexerFull() {
         // LED feedback
+        isStrobing = false;
         if (led != null) {
-            led.setFull();
+            led.set(LEDState.kAMBER);
         }
 
         // Long rumble to alert driver
@@ -117,8 +183,9 @@ public class RobotFeedback {
      * Call when spindexer becomes empty
      */
     public void onSpindexerEmpty() {
+        isStrobing = false;
         if (led != null) {
-            led.setReady();
+            led.set(LEDState.kGREEN);
         }
     }
 
@@ -126,8 +193,9 @@ public class RobotFeedback {
      * Set LED to ready state
      */
     public void setReady() {
+        isStrobing = false;
         if (led != null) {
-            led.setReady();
+            led.set(LEDState.kGREEN);
         }
     }
 
@@ -135,8 +203,9 @@ public class RobotFeedback {
      * Set LED to idle state
      */
     public void setIdle() {
+        isStrobing = false;
         if (led != null) {
-            led.setIdle();
+            led.set(LEDState.kOFF);
         }
     }
 
