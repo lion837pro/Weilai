@@ -16,7 +16,6 @@ import dev.nextftc.ftc.ActiveOpMode;
 /**
  * Commands for the Spindexer subsystem.
  * Contains spindexer-specific commands and smart feed helpers.
- *
  * For intake sequences, see IntakeCommands.
  * For shooting sequences, see ShooterCommands.
  */
@@ -313,7 +312,7 @@ public class SpindexerCommands {
                     spindexer.resetOffsetState();
                     if (feedback != null) feedback.onShooterStop();
                 })
-                .setIsDone(() -> continuous ? false : spindexer.isEmpty())
+                .setIsDone(() -> !continuous && spindexer.isEmpty())
                 .setInterruptible(true);
     }
 
@@ -340,7 +339,7 @@ public class SpindexerCommands {
      * - Tag 21 (G,P,P): Shoot GREEN first from slot 0
      * - Tag 22 (P,G,P): Shoot GREEN first from slot 1
      * - Tag 23 (P,P,G): Shoot GREEN first from slot 2
-     *
+
      * If no color sort tag is detected, falls back to normal sequential shooting.
      * Includes 60-degree offset for mechanical clearance during shooter spin-up.
      */
@@ -533,7 +532,7 @@ public class SpindexerCommands {
                     spindexer.resetOffsetState();
                     if (feedback != null) feedback.onShooterStop();
                 })
-                .setIsDone(() -> continuous ? false : spindexer.isEmpty())
+                .setIsDone(() -> !continuous && spindexer.isEmpty())
                 .setInterruptible(true);
     }
 

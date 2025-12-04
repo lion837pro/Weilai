@@ -18,7 +18,7 @@ public class Shooter implements Subsystem {
     private VelocityProfileController controller;
     private SlewRateLimiter slewRateLimiter;
      MotorEx Sh1;
-     MotorEx Sh2 ;
+    // MotorEx Sh2 ;
     private boolean hasTarget = false;
     private boolean open = false;
     private double currentPower = 0;
@@ -34,10 +34,10 @@ public class Shooter implements Subsystem {
                 ShooterConstants.kV);
 
         this.Sh1 = new MotorEx(ShooterConstants.shootername1).reversed();
-        this.Sh2 = new MotorEx(ShooterConstants.shootername2);
+       // this.Sh2 = new MotorEx(ShooterConstants.shootername2);
 
         Sh1.brakeMode();
-        Sh2.brakeMode();
+      //  Sh2.brakeMode();
         // Initialize slew rate limiter
         // maxRateOfChange = how fast power can change per second
         // Example: 1.5 means 0 to 1.0 power takes ~0.67 seconds
@@ -125,7 +125,7 @@ public class Shooter implements Subsystem {
     }
 
     public double getVelocity(){
-        return (Sh1.getVelocity() + Sh2.getVelocity()) / 2.0;
+        return (Sh1.getVelocity()) / 2.0;
     }
 
     public void toVelocity(double velocity){
@@ -137,7 +137,7 @@ public class Shooter implements Subsystem {
     private void setPower(double power) {
         this.currentPower = power;
         Sh1.setPower(power);
-        Sh2.setPower(power);
+      //  Sh2.setPower(power);
     }
 
     public void set(double power) {
