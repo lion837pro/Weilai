@@ -62,6 +62,10 @@ public class Spindexer implements Subsystem {
     private double targetTicks = 0;            // Target encoder position
     private double currentPower = 0;
 
+    // Shooter offset state (for mechanical clearance)
+    private boolean isInOffsetPosition = false;  // True when spindexer is offset for shooter spin-up
+    private double baseShooterTicks = 0;         // The base shooter position (before offset)
+
     // Timing
     private ElapsedTime moveTimer = new ElapsedTime();
     private ElapsedTime settleTimer = new ElapsedTime();
@@ -291,6 +295,55 @@ public class Spindexer implements Subsystem {
         int prevPos = (currentPosition - 1 + SpindexerConstants.POSITION_COUNT)
                 % SpindexerConstants.POSITION_COUNT;
         goToPosition(prevPos);
+    }
+
+    // ===== SHOOTER CLEARANCE OFFSET =====
+
+    /**
+     * Apply offset to move ball away from shooter wheel during spin-up.
+     * Call this BEFORE spinning up the shooter to prevent ball friction.
+     * The spindexer should already be at a shooter position.
+     */
+    public void applyShooterOffset() {
+        if (isInOffsetPosition) return;  // Already offset
+
+        baseShooterTicks = getCurrentTicks();
+        targetTicks = baseShooterTicks + SpindexerConstants.SHOOTER_CLEARANCE_OFFSET_TICKS;
+        hasTarget = true;
+        isMoving = true;
+        isSettling = false;
+        isInOffsetPosition = true;
+        moveTimer.reset();
+    }
+
+    /**
+     * Remove offset to bring ball back to shooter position for firing.
+     * Call this AFTER shooter reaches target RPM.
+     */
+    public void removeShooterOffset() {
+        if (!isInOffsetPosition) return;  // Not offset
+
+        targetTicks = baseShooterTicks;
+        hasTarget = true;
+        isMoving = true;
+        isSettling = false;
+        isInOffsetPosition = false;
+        moveTimer.reset();
+    }
+
+    /**
+     * Check if spindexer is in offset position
+     */
+    public boolean isInOffsetPosition() {
+        return isInOffsetPosition;
+    }
+
+    /**
+     * Reset offset state (call when starting a new shooting sequence)
+     */
+    public void resetOffsetState() {
+        isInOffsetPosition = false;
+        baseShooterTicks = 0;
     }
 
     // ===== HOMING =====

@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake;
 
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.LED.RobotFeedback;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Spindexer.Spindexer;
 
 import dev.nextftc.core.commands.Command;
@@ -47,48 +48,57 @@ public class IntakeCommands {
      * Runs until interrupted (for TeleOp button hold).
      */
     public static Command runIntakeWithSpindexer(Spindexer spindexer, Intake intake, double intakeSpeed) {
-        return new LambdaCommand()
-                .named("runIntakeWithSpindexer")
-                .requires(spindexer)
-                .requires(intake)
-                .setStart(() -> spindexer.goToNextIntakePosition())
-                .setUpdate(() -> {
-                    if (spindexer.isFull()) {
-                        intake.MoveIn(0);
-                        return;
-                    }
+        return runIntakeWithSpindexerInternal(spindexer, intake, intakeSpeed, null, false);
+    }
 
-                    if (spindexer.atPosition() && spindexer.isAtIntakePosition()) {
-                        intake.MoveIn(intakeSpeed);
-
-                        int currentSlot = spindexer.getCurrentPosition() / 2;
-                        if (spindexer.hasBall(currentSlot)) {
-                            spindexer.goToNextIntakePosition();
-                        }
-                    } else {
-                        intake.MoveIn(0);
-                    }
-                })
-                .setStop(interrupted -> {
-                    intake.MoveIn(0);
-                    spindexer.stop();
-                })
-                .setIsDone(() -> false)
-                .setInterruptible(true);
+    /**
+     * Smart intake with spindexer and feedback (LED + rumble)
+     */
+    public static Command runIntakeWithSpindexer(Spindexer spindexer, Intake intake,
+                                                  double intakeSpeed, RobotFeedback feedback) {
+        return runIntakeWithSpindexerInternal(spindexer, intake, intakeSpeed, feedback, false);
     }
 
     /**
      * Smart intake that stops when spindexer is full (for auto routines).
      */
     public static Command intakeUntilFull(Spindexer spindexer, Intake intake, double intakeSpeed) {
+        return runIntakeWithSpindexerInternal(spindexer, intake, intakeSpeed, null, true);
+    }
+
+    /**
+     * Smart intake until full with feedback
+     */
+    public static Command intakeUntilFull(Spindexer spindexer, Intake intake,
+                                           double intakeSpeed, RobotFeedback feedback) {
+        return runIntakeWithSpindexerInternal(spindexer, intake, intakeSpeed, feedback, true);
+    }
+
+    /**
+     * Internal implementation for intake with spindexer
+     */
+    private static Command runIntakeWithSpindexerInternal(Spindexer spindexer, Intake intake,
+                                                           double intakeSpeed, RobotFeedback feedback,
+                                                           boolean stopWhenFull) {
+        final int[] previousBallCount = {0};
+
         return new LambdaCommand()
-                .named("intakeUntilFull")
+                .named(stopWhenFull ? "intakeUntilFull" : "runIntakeWithSpindexer")
                 .requires(spindexer)
                 .requires(intake)
-                .setStart(() -> spindexer.goToNextIntakePosition())
+                .setStart(() -> {
+                    previousBallCount[0] = spindexer.getBallCount();
+                    spindexer.goToNextIntakePosition();
+                    if (feedback != null) {
+                        feedback.onIntakeStart();
+                    }
+                })
                 .setUpdate(() -> {
                     if (spindexer.isFull()) {
                         intake.MoveIn(0);
+                        if (feedback != null) {
+                            feedback.onSpindexerFull();
+                        }
                         return;
                     }
 
@@ -97,6 +107,14 @@ public class IntakeCommands {
 
                         int currentSlot = spindexer.getCurrentPosition() / 2;
                         if (spindexer.hasBall(currentSlot)) {
+                            // Ball was just detected - provide feedback
+                            int currentBallCount = spindexer.getBallCount();
+                            if (currentBallCount > previousBallCount[0]) {
+                                if (feedback != null) {
+                                    feedback.onIntakeSuccess();
+                                }
+                                previousBallCount[0] = currentBallCount;
+                            }
                             spindexer.goToNextIntakePosition();
                         }
                     } else {
@@ -106,8 +124,11 @@ public class IntakeCommands {
                 .setStop(interrupted -> {
                     intake.MoveIn(0);
                     spindexer.stop();
+                    if (feedback != null) {
+                        feedback.onIntakeStop();
+                    }
                 })
-                .setIsDone(() -> spindexer.isFull())
+                .setIsDone(() -> stopWhenFull ? spindexer.isFull() : false)
                 .setInterruptible(true);
     }
 }

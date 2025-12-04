@@ -6,6 +6,8 @@ import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.ChassisConstants;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.SuperChassis;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.Intake;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.IntakeCommands;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.LED.LED;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.LED.RobotFeedback;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter.Shooter;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter.ShooterCommands;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Spindexer.Spindexer;
@@ -23,6 +25,10 @@ public class TeleopMode extends NextFTCOpMode {
     private final Intake intake = Intake.INSTANCE;
     private final Shooter shooter = Shooter.INSTANCE;
     private final Spindexer spindexer = Spindexer.INSTANCE;
+    private final LED led = LED.INSTANCE;
+
+    // Feedback system for LED and gamepad rumble
+    private RobotFeedback feedback;
 
 
     private  Button a;
@@ -41,10 +47,14 @@ public class TeleopMode extends NextFTCOpMode {
         addComponents(intake.asCOMPONENT());
         addComponents(shooter.asCOMPONENT());
         addComponents(spindexer.asCOMPONENT());
+        addComponents(led.asCOMPONENT());
     }
 
     @Override
     public void onInit() {
+        // Initialize feedback system with LED and gamepads
+        feedback = new RobotFeedback(led);
+        feedback.setGamepads(gamepad1, gamepad2);
 
         this.a = button(() -> gamepad1.a);
         this.b = button(() -> gamepad1.b);
@@ -58,9 +68,9 @@ public class TeleopMode extends NextFTCOpMode {
 
         options.whenBecomesTrue(DriveCommands.resetHeading(chassis));
 
-        // ===== INTAKE WITH SPINDEXER =====
+        // ===== INTAKE WITH SPINDEXER (with LED + rumble feedback) =====
         // A button: Smart intake with spindexer auto-indexing
-        a.whenBecomesTrue(IntakeCommands.runIntakeWithSpindexer(spindexer, intake, 0.6));
+        a.whenBecomesTrue(IntakeCommands.runIntakeWithSpindexer(spindexer, intake, 0.6, feedback));
         a.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
         a.whenBecomesFalse(IntakeCommands.stopIntake(intake));
 
@@ -77,15 +87,15 @@ public class TeleopMode extends NextFTCOpMode {
         dpad.whenTrue(ShooterCommands.runShooterPID(shooter, -600));
         dpad.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
 
-        // ===== FULL SHOOTING WITH SPINDEXER =====
-        // Right bumper: Auto-aim shooting with spindexer indexing
-        right_bumper.whenTrue(ShooterCommands.teleopShootAutoAim(shooter, spindexer, intake, chassis));
+        // ===== FULL SHOOTING WITH SPINDEXER (with LED + rumble feedback) =====
+        // Right bumper: Color-sorted auto-aim shooting (BEST FOR COMPETITION)
+        right_bumper.whenTrue(ShooterCommands.teleopShootColorSortedAutoAim(shooter, spindexer, intake, chassis, feedback));
         right_bumper.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
         right_bumper.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
         right_bumper.whenBecomesFalse(IntakeCommands.stopIntake(intake));
 
         // Y button: Fixed RPM shooting with spindexer (for when vision isn't available)
-        y.whenBecomesTrue(ShooterCommands.teleopShootFixedRPM(shooter, spindexer, intake, 1800));
+        y.whenBecomesTrue(ShooterCommands.teleopShootFixedRPM(shooter, spindexer, intake, 1800, feedback));
         y.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
         y.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
         y.whenBecomesFalse(IntakeCommands.stopIntake(intake));
@@ -118,6 +128,9 @@ public class TeleopMode extends NextFTCOpMode {
         spindexer.setDefaultCommand(
                 SpindexerCommands.manualSpin(spindexer,
                         () -> gamepad1.left_trigger - gamepad2.left_trigger));
+
+        // Set LED to ready state
+        feedback.setReady();
     }
 
     @Override

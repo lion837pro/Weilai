@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.SuperChassis;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.Intake;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.LED.RobotFeedback;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Spindexer.Spindexer;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Spindexer.SpindexerCommands;
 
@@ -91,6 +92,7 @@ public class ShooterCommands {
 
     // ========================================================================
     // SHOOTING SEQUENCES WITH SPINDEXER
+    // (Includes 60-degree mechanical offset for shooter spin-up clearance)
     // ========================================================================
 
     /**
@@ -101,6 +103,17 @@ public class ShooterCommands {
         return new ParallelGroup(
                 runShooterPID(shooter, rpm),
                 SpindexerCommands.smartFeedWithSpindexer(shooter, spindexer, intake)
+        );
+    }
+
+    /**
+     * Full shooting routine at fixed RPM with feedback (LED + rumble)
+     */
+    public static Command shootAllBallsFixedRPM(Shooter shooter, Spindexer spindexer, Intake intake,
+                                                 double rpm, RobotFeedback feedback) {
+        return new ParallelGroup(
+                runShooterPID(shooter, rpm),
+                SpindexerCommands.smartFeedWithSpindexer(shooter, spindexer, intake, feedback)
         );
     }
 
@@ -116,12 +129,34 @@ public class ShooterCommands {
     }
 
     /**
+     * Full shooting routine with auto-aim and feedback
+     */
+    public static Command shootAllBallsAutoAim(Shooter shooter, Spindexer spindexer, Intake intake,
+                                                SuperChassis chassis, RobotFeedback feedback) {
+        return new ParallelGroup(
+                autoRevShooter(shooter, chassis),
+                SpindexerCommands.smartFeedWithSpindexer(shooter, spindexer, intake, feedback)
+        );
+    }
+
+    /**
      * TeleOp shooting with auto-aim - runs until button released.
      */
     public static Command teleopShootAutoAim(Shooter shooter, Spindexer spindexer, Intake intake, SuperChassis chassis) {
         return new ParallelGroup(
                 autoRevShooter(shooter, chassis),
                 SpindexerCommands.smartFeedWithSpindexerContinuous(shooter, spindexer, intake)
+        );
+    }
+
+    /**
+     * TeleOp shooting with auto-aim and feedback
+     */
+    public static Command teleopShootAutoAim(Shooter shooter, Spindexer spindexer, Intake intake,
+                                              SuperChassis chassis, RobotFeedback feedback) {
+        return new ParallelGroup(
+                autoRevShooter(shooter, chassis),
+                SpindexerCommands.smartFeedWithSpindexerContinuous(shooter, spindexer, intake, feedback)
         );
     }
 
@@ -135,8 +170,20 @@ public class ShooterCommands {
         );
     }
 
+    /**
+     * TeleOp shooting at fixed RPM with feedback
+     */
+    public static Command teleopShootFixedRPM(Shooter shooter, Spindexer spindexer, Intake intake,
+                                               double rpm, RobotFeedback feedback) {
+        return new ParallelGroup(
+                runShooterPID(shooter, rpm),
+                SpindexerCommands.smartFeedWithSpindexerContinuous(shooter, spindexer, intake, feedback)
+        );
+    }
+
     // ========================================================================
     // COLOR-SORTED SHOOTING SEQUENCES (uses AprilTag IDs 21, 22, 23)
+    // (Includes 60-degree mechanical offset for shooter spin-up clearance)
     // ========================================================================
 
     /**
@@ -155,6 +202,18 @@ public class ShooterCommands {
     }
 
     /**
+     * Color-sorted shooting at fixed RPM with feedback
+     */
+    public static Command shootAllBallsColorSorted(Shooter shooter, Spindexer spindexer,
+                                                    Intake intake, SuperChassis chassis,
+                                                    double rpm, RobotFeedback feedback) {
+        return new ParallelGroup(
+                runShooterPID(shooter, rpm),
+                SpindexerCommands.smartFeedColorSorted(shooter, spindexer, intake, chassis, feedback)
+        );
+    }
+
+    /**
      * Shoot all balls with color sorting and auto-aim.
      * Combines distance-based RPM with AprilTag color sorting.
      */
@@ -163,6 +222,18 @@ public class ShooterCommands {
         return new ParallelGroup(
                 autoRevShooter(shooter, chassis),
                 SpindexerCommands.smartFeedColorSorted(shooter, spindexer, intake, chassis)
+        );
+    }
+
+    /**
+     * Color-sorted shooting with auto-aim and feedback
+     */
+    public static Command shootAllBallsColorSortedAutoAim(Shooter shooter, Spindexer spindexer,
+                                                           Intake intake, SuperChassis chassis,
+                                                           RobotFeedback feedback) {
+        return new ParallelGroup(
+                autoRevShooter(shooter, chassis),
+                SpindexerCommands.smartFeedColorSorted(shooter, spindexer, intake, chassis, feedback)
         );
     }
 
@@ -179,6 +250,18 @@ public class ShooterCommands {
     }
 
     /**
+     * TeleOp color-sorted shooting at fixed RPM with feedback
+     */
+    public static Command teleopShootColorSorted(Shooter shooter, Spindexer spindexer,
+                                                  Intake intake, SuperChassis chassis,
+                                                  double rpm, RobotFeedback feedback) {
+        return new ParallelGroup(
+                runShooterPID(shooter, rpm),
+                SpindexerCommands.smartFeedColorSortedContinuous(shooter, spindexer, intake, chassis, feedback)
+        );
+    }
+
+    /**
      * TeleOp color-sorted shooting with auto-aim.
      * Best option for competition - combines distance-based RPM with color sorting.
      */
@@ -187,6 +270,19 @@ public class ShooterCommands {
         return new ParallelGroup(
                 autoRevShooter(shooter, chassis),
                 SpindexerCommands.smartFeedColorSortedContinuous(shooter, spindexer, intake, chassis)
+        );
+    }
+
+    /**
+     * TeleOp color-sorted shooting with auto-aim and feedback
+     * Best option for competition with full feedback (LED + rumble).
+     */
+    public static Command teleopShootColorSortedAutoAim(Shooter shooter, Spindexer spindexer,
+                                                         Intake intake, SuperChassis chassis,
+                                                         RobotFeedback feedback) {
+        return new ParallelGroup(
+                autoRevShooter(shooter, chassis),
+                SpindexerCommands.smartFeedColorSortedContinuous(shooter, spindexer, intake, chassis, feedback)
         );
     }
 }

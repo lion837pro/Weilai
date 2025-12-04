@@ -4,6 +4,7 @@ import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.SuperChassis;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants.BallColor;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.Intake;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.LED.RobotFeedback;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter.Shooter;
 
 import java.util.function.DoubleSupplier;
@@ -159,83 +160,178 @@ public class SpindexerCommands {
 
     // ========================================================================
     // SMART FEED HELPERS (used by ShooterCommands for shooting sequences)
+    // With 60-degree offset for mechanical clearance during shooter spin-up
     // ========================================================================
 
     /**
-     * Smart feed with spindexer indexing - feeds ball only when shooter is at setpoint,
-     * then indexes to next loaded slot. Runs until all balls are fired.
+     * Shooting state machine states
+     */
+    private enum ShootState {
+        MOVING_TO_SHOOTER,      // Moving to shooter position
+        APPLYING_OFFSET,        // Applying 60-degree offset for shooter clearance
+        WAITING_FOR_SPINUP,     // Waiting for shooter to reach RPM
+        REMOVING_OFFSET,        // Moving ball back to shooter position
+        FEEDING,                // Ball is being fed to shooter
+        NEXT_BALL              // Moving to next ball
+    }
+
+    /**
+     * Smart feed with spindexer indexing and mechanical offset.
+     * Sequence: Move to shooter pos → Offset 60° → Wait for RPM → Return → Feed
+     * Runs until all balls are fired.
      */
     public static Command smartFeedWithSpindexer(Shooter shooter, Spindexer spindexer, Intake intake) {
-        return new LambdaCommand()
-                .named("smartFeedWithSpindexer")
-                .requires(spindexer)
-                .requires(intake)
-                .setStart(() -> spindexer.goToNextShooterPosition())
-                .setUpdate(() -> {
-                    if (spindexer.isEmpty()) {
-                        intake.MoveIn(0);
-                        return;
-                    }
+        return smartFeedWithSpindexerInternal(shooter, spindexer, intake, null, false);
+    }
 
-                    if (!spindexer.atPosition() || !spindexer.isAtShooterPosition()) {
-                        intake.MoveIn(0);
-                        return;
-                    }
-
-                    if (shooter.atSetpoint()) {
-                        intake.MoveIn(1.0);
-                        spindexer.markCurrentSlotEmpty();
-                        spindexer.goToNextShooterPosition();
-                    } else {
-                        intake.MoveIn(0);
-                    }
-                })
-                .setStop(interrupted -> {
-                    intake.MoveIn(0);
-                    spindexer.stop();
-                })
-                .setIsDone(() -> spindexer.isEmpty())
-                .setInterruptible(true);
+    /**
+     * Smart feed with feedback (LED + rumble)
+     */
+    public static Command smartFeedWithSpindexer(Shooter shooter, Spindexer spindexer,
+                                                  Intake intake, RobotFeedback feedback) {
+        return smartFeedWithSpindexerInternal(shooter, spindexer, intake, feedback, false);
     }
 
     /**
      * Continuous smart feed for TeleOp - runs until interrupted.
      */
     public static Command smartFeedWithSpindexerContinuous(Shooter shooter, Spindexer spindexer, Intake intake) {
+        return smartFeedWithSpindexerInternal(shooter, spindexer, intake, null, true);
+    }
+
+    /**
+     * Continuous smart feed with feedback
+     */
+    public static Command smartFeedWithSpindexerContinuous(Shooter shooter, Spindexer spindexer,
+                                                            Intake intake, RobotFeedback feedback) {
+        return smartFeedWithSpindexerInternal(shooter, spindexer, intake, feedback, true);
+    }
+
+    /**
+     * Internal smart feed implementation with state machine
+     */
+    private static Command smartFeedWithSpindexerInternal(Shooter shooter, Spindexer spindexer,
+                                                           Intake intake, RobotFeedback feedback,
+                                                           boolean continuous) {
+        final ShootState[] state = {ShootState.MOVING_TO_SHOOTER};
+        final BallColor[] currentBallColor = {BallColor.UNKNOWN};
+
         return new LambdaCommand()
-                .named("smartFeedWithSpindexerContinuous")
+                .named(continuous ? "smartFeedContinuous" : "smartFeed")
                 .requires(spindexer)
                 .requires(intake)
-                .setStart(() -> spindexer.goToNextShooterPosition())
+                .setStart(() -> {
+                    state[0] = ShootState.MOVING_TO_SHOOTER;
+                    spindexer.resetOffsetState();
+                    spindexer.goToNextShooterPosition();
+
+                    // Get color of next ball for LED feedback
+                    int slot = getNextLoadedSlot(spindexer);
+                    if (slot >= 0) {
+                        currentBallColor[0] = spindexer.getBallColor(slot);
+                        if (feedback != null) {
+                            feedback.onShooterSpinUp(currentBallColor[0]);
+                        }
+                    }
+                })
                 .setUpdate(() -> {
                     if (spindexer.isEmpty()) {
                         intake.MoveIn(0);
+                        if (feedback != null) feedback.onSpindexerEmpty();
                         return;
                     }
 
-                    if (!spindexer.atPosition() || !spindexer.isAtShooterPosition()) {
-                        intake.MoveIn(0);
-                        return;
-                    }
+                    switch (state[0]) {
+                        case MOVING_TO_SHOOTER:
+                            intake.MoveIn(0);
+                            if (spindexer.atPosition() && spindexer.isAtShooterPosition()) {
+                                // At shooter position, apply offset
+                                spindexer.applyShooterOffset();
+                                state[0] = ShootState.APPLYING_OFFSET;
+                            }
+                            break;
 
-                    if (shooter.atSetpoint()) {
-                        intake.MoveIn(1.0);
-                        spindexer.markCurrentSlotEmpty();
-                        spindexer.goToNextShooterPosition();
-                    } else {
-                        intake.MoveIn(0);
+                        case APPLYING_OFFSET:
+                            intake.MoveIn(0);
+                            if (spindexer.atPosition()) {
+                                // Offset applied, now wait for shooter spin-up
+                                state[0] = ShootState.WAITING_FOR_SPINUP;
+                            }
+                            break;
+
+                        case WAITING_FOR_SPINUP:
+                            intake.MoveIn(0);
+                            if (shooter.atSetpoint()) {
+                                // Shooter at RPM, remove offset to bring ball to shooter
+                                spindexer.removeShooterOffset();
+                                state[0] = ShootState.REMOVING_OFFSET;
+                            }
+                            break;
+
+                        case REMOVING_OFFSET:
+                            intake.MoveIn(0);
+                            if (spindexer.atPosition()) {
+                                // Ball is at shooter position, start feeding
+                                state[0] = ShootState.FEEDING;
+                            }
+                            break;
+
+                        case FEEDING:
+                            intake.MoveIn(1.0);  // Feed the ball
+
+                            // Mark ball as shot and provide feedback
+                            if (feedback != null) {
+                                feedback.onBallShot(currentBallColor[0]);
+                            }
+
+                            spindexer.markCurrentSlotEmpty();
+                            state[0] = ShootState.NEXT_BALL;
+                            break;
+
+                        case NEXT_BALL:
+                            intake.MoveIn(0);
+                            if (!spindexer.isEmpty()) {
+                                // Move to next ball
+                                spindexer.goToNextShooterPosition();
+                                state[0] = ShootState.MOVING_TO_SHOOTER;
+
+                                // Update ball color for feedback
+                                int slot = getNextLoadedSlot(spindexer);
+                                if (slot >= 0) {
+                                    currentBallColor[0] = spindexer.getBallColor(slot);
+                                    if (feedback != null) {
+                                        feedback.onShooterSpinUp(currentBallColor[0]);
+                                    }
+                                }
+                            }
+                            break;
                     }
                 })
                 .setStop(interrupted -> {
                     intake.MoveIn(0);
                     spindexer.stop();
+                    spindexer.resetOffsetState();
+                    if (feedback != null) feedback.onShooterStop();
                 })
-                .setIsDone(() -> false)
+                .setIsDone(() -> continuous ? false : spindexer.isEmpty())
                 .setInterruptible(true);
+    }
+
+    /**
+     * Get the next loaded slot index
+     */
+    private static int getNextLoadedSlot(Spindexer spindexer) {
+        for (int i = 0; i < SpindexerConstants.SLOTS_COUNT; i++) {
+            if (spindexer.hasBall(i)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     // ========================================================================
     // COLOR-SORTED SMART FEED (uses AprilTag IDs 21, 22, 23)
+    // With 60-degree offset for mechanical clearance
     // ========================================================================
 
     /**
@@ -246,26 +342,66 @@ public class SpindexerCommands {
      * - Tag 23 (P,P,G): Shoot GREEN first from slot 2
      *
      * If no color sort tag is detected, falls back to normal sequential shooting.
-     * Runs until all balls are fired.
+     * Includes 60-degree offset for mechanical clearance during shooter spin-up.
      */
-    public static Command smartFeedColorSorted(Shooter shooter, Spindexer spindexer, Intake intake, SuperChassis chassis) {
-        final int[] targetSlotOrder = {-1, -1, -1};  // Will be populated based on tag
+    public static Command smartFeedColorSorted(Shooter shooter, Spindexer spindexer,
+                                                Intake intake, SuperChassis chassis) {
+        return smartFeedColorSortedInternal(shooter, spindexer, intake, chassis, null, false);
+    }
+
+    /**
+     * Color-sorted smart feed with feedback
+     */
+    public static Command smartFeedColorSorted(Shooter shooter, Spindexer spindexer,
+                                                Intake intake, SuperChassis chassis,
+                                                RobotFeedback feedback) {
+        return smartFeedColorSortedInternal(shooter, spindexer, intake, chassis, feedback, false);
+    }
+
+    /**
+     * Continuous color-sorted smart feed for TeleOp.
+     */
+    public static Command smartFeedColorSortedContinuous(Shooter shooter, Spindexer spindexer,
+                                                          Intake intake, SuperChassis chassis) {
+        return smartFeedColorSortedInternal(shooter, spindexer, intake, chassis, null, true);
+    }
+
+    /**
+     * Continuous color-sorted smart feed with feedback
+     */
+    public static Command smartFeedColorSortedContinuous(Shooter shooter, Spindexer spindexer,
+                                                          Intake intake, SuperChassis chassis,
+                                                          RobotFeedback feedback) {
+        return smartFeedColorSortedInternal(shooter, spindexer, intake, chassis, feedback, true);
+    }
+
+    /**
+     * Internal implementation of color-sorted smart feed with state machine
+     */
+    private static Command smartFeedColorSortedInternal(Shooter shooter, Spindexer spindexer,
+                                                         Intake intake, SuperChassis chassis,
+                                                         RobotFeedback feedback, boolean continuous) {
+        final int[] targetSlotOrder = {-1, -1, -1};
         final int[] currentIndex = {0};
+        final ShootState[] state = {ShootState.MOVING_TO_SHOOTER};
+        final BallColor[] currentBallColor = {BallColor.UNKNOWN};
+        final int[] lastTagId = {-1};
 
         return new LambdaCommand()
-                .named("smartFeedColorSorted")
+                .named(continuous ? "colorSortedFeedContinuous" : "colorSortedFeed")
                 .requires(spindexer)
                 .requires(intake)
                 .setStart(() -> {
                     currentIndex[0] = 0;
+                    state[0] = ShootState.MOVING_TO_SHOOTER;
+                    spindexer.resetOffsetState();
 
                     // Determine shooting order based on detected tag
                     int tagId = chassis.getLastDetectedId();
+                    lastTagId[0] = tagId;
                     int greenSlot = VisionConstants.getGreenSlotForTag(tagId);
 
                     if (greenSlot != -1) {
-                        // Color sort tag detected - prioritize green ball position
-                        // Shooting order: green slot first, then others
                         targetSlotOrder[0] = greenSlot;
                         int idx = 1;
                         for (int i = 0; i < 3; i++) {
@@ -275,110 +411,129 @@ public class SpindexerCommands {
                         }
                         ActiveOpMode.telemetry().addData("ColorSort", "Tag %d: Green at slot %d", tagId, greenSlot);
                     } else {
-                        // No color sort tag - use default order
                         targetSlotOrder[0] = 0;
                         targetSlotOrder[1] = 1;
                         targetSlotOrder[2] = 2;
-                        ActiveOpMode.telemetry().addData("ColorSort", "No tag - default order");
                     }
 
                     // Move to first slot with a ball
                     goToNextSlotInOrder(spindexer, targetSlotOrder, currentIndex);
-                })
-                .setUpdate(() -> {
-                    if (spindexer.isEmpty()) {
-                        intake.MoveIn(0);
-                        return;
-                    }
 
-                    if (!spindexer.atPosition() || !spindexer.isAtShooterPosition()) {
-                        intake.MoveIn(0);
-                        return;
-                    }
-
-                    if (shooter.atSetpoint()) {
-                        intake.MoveIn(1.0);
-                        spindexer.markCurrentSlotEmpty();
-                        currentIndex[0]++;
-                        goToNextSlotInOrder(spindexer, targetSlotOrder, currentIndex);
-                    } else {
-                        intake.MoveIn(0);
-                    }
-                })
-                .setStop(interrupted -> {
-                    intake.MoveIn(0);
-                    spindexer.stop();
-                })
-                .setIsDone(() -> spindexer.isEmpty())
-                .setInterruptible(true);
-    }
-
-    /**
-     * Continuous color-sorted smart feed for TeleOp.
-     * Continuously checks for new AprilTag detections and adjusts shooting order.
-     */
-    public static Command smartFeedColorSortedContinuous(Shooter shooter, Spindexer spindexer, Intake intake, SuperChassis chassis) {
-        final int[] lastTagId = {-1};
-
-        return new LambdaCommand()
-                .named("smartFeedColorSortedContinuous")
-                .requires(spindexer)
-                .requires(intake)
-                .setStart(() -> {
-                    lastTagId[0] = -1;
-                    // Initial positioning
-                    int tagId = chassis.getLastDetectedId();
-                    if (VisionConstants.isColorSortTag(tagId)) {
-                        spindexer.goToShooterPositionForTag(tagId);
-                    } else {
-                        spindexer.goToNextShooterPosition();
-                    }
-                })
-                .setUpdate(() -> {
-                    if (spindexer.isEmpty()) {
-                        intake.MoveIn(0);
-                        return;
-                    }
-
-                    // Check for tag changes
-                    int currentTag = chassis.getLastDetectedId();
-                    if (VisionConstants.isColorSortTag(currentTag) && currentTag != lastTagId[0]) {
-                        lastTagId[0] = currentTag;
-                        // Tag changed - reposition if needed
-                        spindexer.goToShooterPositionForTag(currentTag);
-                        ActiveOpMode.telemetry().addData("ColorSort", "Switched to tag %d", currentTag);
-                    }
-
-                    if (!spindexer.atPosition() || !spindexer.isAtShooterPosition()) {
-                        intake.MoveIn(0);
-                        return;
-                    }
-
-                    if (shooter.atSetpoint()) {
-                        intake.MoveIn(1.0);
-                        spindexer.markCurrentSlotEmpty();
-
-                        // Move to next appropriate slot
-                        if (VisionConstants.isColorSortTag(currentTag)) {
-                            spindexer.goToShooterPositionForTag(currentTag);
-                        } else {
-                            spindexer.goToNextShooterPosition();
+                    // Get color for feedback
+                    if (currentIndex[0] < 3) {
+                        int slot = targetSlotOrder[currentIndex[0]];
+                        currentBallColor[0] = spindexer.getBallColor(slot);
+                        if (feedback != null) {
+                            feedback.onShooterSpinUp(currentBallColor[0]);
                         }
-                    } else {
+                    }
+                })
+                .setUpdate(() -> {
+                    if (spindexer.isEmpty()) {
                         intake.MoveIn(0);
+                        if (feedback != null) feedback.onSpindexerEmpty();
+                        return;
+                    }
+
+                    // In continuous mode, check for tag changes
+                    if (continuous) {
+                        int currentTag = chassis.getLastDetectedId();
+                        if (VisionConstants.isColorSortTag(currentTag) && currentTag != lastTagId[0]) {
+                            lastTagId[0] = currentTag;
+                            // Recalculate order for new tag
+                            int greenSlot = VisionConstants.getGreenSlotForTag(currentTag);
+                            if (greenSlot != -1) {
+                                currentIndex[0] = 0;
+                                targetSlotOrder[0] = greenSlot;
+                                int idx = 1;
+                                for (int i = 0; i < 3; i++) {
+                                    if (i != greenSlot) {
+                                        targetSlotOrder[idx++] = i;
+                                    }
+                                }
+                                state[0] = ShootState.MOVING_TO_SHOOTER;
+                                spindexer.resetOffsetState();
+                                goToNextSlotInOrder(spindexer, targetSlotOrder, currentIndex);
+                            }
+                        }
+                    }
+
+                    switch (state[0]) {
+                        case MOVING_TO_SHOOTER:
+                            intake.MoveIn(0);
+                            if (spindexer.atPosition() && spindexer.isAtShooterPosition()) {
+                                spindexer.applyShooterOffset();
+                                state[0] = ShootState.APPLYING_OFFSET;
+                            }
+                            break;
+
+                        case APPLYING_OFFSET:
+                            intake.MoveIn(0);
+                            if (spindexer.atPosition()) {
+                                state[0] = ShootState.WAITING_FOR_SPINUP;
+                            }
+                            break;
+
+                        case WAITING_FOR_SPINUP:
+                            intake.MoveIn(0);
+                            if (shooter.atSetpoint()) {
+                                spindexer.removeShooterOffset();
+                                state[0] = ShootState.REMOVING_OFFSET;
+                            }
+                            break;
+
+                        case REMOVING_OFFSET:
+                            intake.MoveIn(0);
+                            if (spindexer.atPosition()) {
+                                state[0] = ShootState.FEEDING;
+                            }
+                            break;
+
+                        case FEEDING:
+                            intake.MoveIn(1.0);
+
+                            if (feedback != null) {
+                                feedback.onBallShot(currentBallColor[0]);
+                            }
+
+                            spindexer.markCurrentSlotEmpty();
+                            currentIndex[0]++;
+                            state[0] = ShootState.NEXT_BALL;
+                            break;
+
+                        case NEXT_BALL:
+                            intake.MoveIn(0);
+                            if (!spindexer.isEmpty()) {
+                                goToNextSlotInOrder(spindexer, targetSlotOrder, currentIndex);
+                                state[0] = ShootState.MOVING_TO_SHOOTER;
+
+                                // Update ball color for feedback
+                                if (currentIndex[0] < 3) {
+                                    int slot = targetSlotOrder[currentIndex[0]];
+                                    if (spindexer.hasBall(slot)) {
+                                        currentBallColor[0] = spindexer.getBallColor(slot);
+                                        if (feedback != null) {
+                                            feedback.onShooterSpinUp(currentBallColor[0]);
+                                        }
+                                    }
+                                }
+                            }
+                            break;
                     }
 
                     // Telemetry
                     BallColor[] colors = spindexer.getAllBallColors();
                     ActiveOpMode.telemetry().addData("Balls", "[%s %s %s]",
                             colorChar(colors[0]), colorChar(colors[1]), colorChar(colors[2]));
-                    ActiveOpMode.telemetry().addData("Tag", currentTag);
+                    ActiveOpMode.telemetry().addData("ShootState", state[0].toString());
                 })
                 .setStop(interrupted -> {
                     intake.MoveIn(0);
                     spindexer.stop();
+                    spindexer.resetOffsetState();
+                    if (feedback != null) feedback.onShooterStop();
                 })
-                .setIsDone(() -> false)
+                .setIsDone(() -> continuous ? false : spindexer.isEmpty())
                 .setInterruptible(true);
     }
 

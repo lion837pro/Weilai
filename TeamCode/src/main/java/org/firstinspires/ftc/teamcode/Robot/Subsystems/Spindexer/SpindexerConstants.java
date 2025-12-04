@@ -92,6 +92,13 @@ public class SpindexerConstants {
     public static final double POSITION_TOLERANCE = 5.0;  // Ticks tolerance for "at position"
     public static final double VELOCITY_TOLERANCE = 10.0; // Ticks/sec tolerance for "stopped"
 
+    // ===== MECHANICAL OFFSET =====
+    // Offset angle to move ball away from shooter wheel during spin-up
+    // This allows the shooter to reach target RPM without ball friction
+    public static final double SHOOTER_CLEARANCE_OFFSET_DEGREES = 60.0;
+    public static final double SHOOTER_CLEARANCE_OFFSET_TICKS =
+            SHOOTER_CLEARANCE_OFFSET_DEGREES * TICKS_PER_DEGREE;
+
     // ===== TIMING =====
     public static final double HOMING_TIMEOUT_MS = 3000;     // Max time to search for home
     public static final double INDEX_TIMEOUT_MS = 1000;      // Max time to move to position
