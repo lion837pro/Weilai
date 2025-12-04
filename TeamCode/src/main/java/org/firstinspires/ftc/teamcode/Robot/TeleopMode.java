@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode.Robot;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import static dev.nextftc.bindings.Bindings.button;
 import org.firstinspires.ftc.teamcode.Robot.DriveCommands.DriveCommands;
+import org.firstinspires.ftc.teamcode.Robot.Hardware.REV312010;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.ChassisConstants;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.SuperChassis;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.Intake;
@@ -24,11 +25,10 @@ public class TeleopMode extends NextFTCOpMode {
     private final Intake intake = Intake.INSTANCE;
     private final Shooter shooter = Shooter.INSTANCE;
     private final Spindexer spindexer = Spindexer.INSTANCE;
-    private final LED led = LED.INSTANCE;
 
-    // Feedback system for LED and gamepad rumble
+    // LED and feedback system
+    private REV312010 led;
     private RobotFeedback feedback;
-
 
     private  Button a;
     private  Button b;
@@ -46,12 +46,16 @@ public class TeleopMode extends NextFTCOpMode {
         addComponents(intake.asCOMPONENT());
         addComponents(shooter.asCOMPONENT());
         addComponents(spindexer.asCOMPONENT());
-        addComponents(led.asCOMPONENT());
     }
 
     @Override
     public void onInit() {
-        // Initialize feedback system with LED and gamepads
+        // Initialize LED (REV-31-2010) and feedback system
+        try {
+            led = new REV312010();
+        } catch (Exception e) {
+            led = null;  // LED not configured, feedback will work without it
+        }
         feedback = new RobotFeedback(led);
         feedback.setGamepads(gamepad1, gamepad2);
 
@@ -144,10 +148,18 @@ public class TeleopMode extends NextFTCOpMode {
     @Override
     public void onUpdate() {
         BindingManager.update();
+        // Update feedback for LED strobe effect
+        if (feedback != null) {
+            feedback.update();
+        }
     }
 
     @Override
     public void onStop() {
         BindingManager.reset();
+        // Turn off LED when stopping
+        if (feedback != null) {
+            feedback.setIdle();
+        }
     }
 }
