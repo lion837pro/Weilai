@@ -12,7 +12,6 @@ import dev.nextftc.core.commands.utility.NullCommand;
 import dev.nextftc.core.components.SubsystemComponent;
 import dev.nextftc.core.subsystems.Subsystem;
 import dev.nextftc.ftc.ActiveOpMode;
-import dev.nextftc.ftc.hardware.HardwareManager;
 import dev.nextftc.hardware.impl.MotorEx;
 
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
@@ -86,7 +85,7 @@ public class Spindexer implements Subsystem {
 
         // Initialize limit switch (magnetic)
         try {
-            this.limitSwitch = HardwareManager.getHardwareMap()
+            this.limitSwitch = ActiveOpMode.hardwareMap()
                     .get(DigitalChannel.class, SpindexerConstants.LIMIT_SWITCH_NAME);
             limitSwitch.setMode(DigitalChannel.Mode.INPUT);
         } catch (Exception e) {
@@ -95,14 +94,14 @@ public class Spindexer implements Subsystem {
 
         // Initialize color sensors
         try {
-            this.colorSensor1 = HardwareManager.getHardwareMap()
+            this.colorSensor1 = ActiveOpMode.hardwareMap()
                     .get(ColorRangeSensor.class, SpindexerConstants.COLOR_SENSOR_1_NAME);
         } catch (Exception e) {
             this.colorSensor1 = null;
         }
 
         try {
-            this.colorSensor2 = HardwareManager.getHardwareMap()
+            this.colorSensor2 = ActiveOpMode.hardwareMap()
                     .get(ColorRangeSensor.class, SpindexerConstants.COLOR_SENSOR_2_NAME);
         } catch (Exception e) {
             this.colorSensor2 = null;

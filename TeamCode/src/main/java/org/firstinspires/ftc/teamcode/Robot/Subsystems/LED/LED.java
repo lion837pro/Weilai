@@ -4,7 +4,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 import dev.nextftc.core.components.SubsystemComponent;
 import dev.nextftc.core.subsystems.Subsystem;
-import dev.nextftc.ftc.hardware.HardwareManager;
+import dev.nextftc.ftc.ActiveOpMode;
 
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.LED.LEDConstants.LEDColor;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants.BallColor;
@@ -51,9 +51,9 @@ public class LED implements Subsystem {
     @Override
     public void initialize() {
         try {
-            ledGreen = HardwareManager.getHardwareMap()
+            ledGreen = ActiveOpMode.hardwareMap()
                     .get(com.qualcomm.robotcore.hardware.LED.class, LEDConstants.LED_GREEN_NAME);
-            ledRed = HardwareManager.getHardwareMap()
+            ledRed = ActiveOpMode.hardwareMap()
                     .get(com.qualcomm.robotcore.hardware.LED.class, LEDConstants.LED_RED_NAME);
             hardwareAvailable = true;
             setColor(LEDColor.OFF);
