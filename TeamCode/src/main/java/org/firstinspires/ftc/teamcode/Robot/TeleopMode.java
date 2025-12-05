@@ -145,6 +145,7 @@ public class TeleopMode extends NextFTCOpMode {
         // Telemetry
         telemetry.addData("Color Sort", chassis.getColorSortModeString());
         telemetry.addData("Override", "DPAD LEFT");
+        telemetry.update();
     }
 
     @Override

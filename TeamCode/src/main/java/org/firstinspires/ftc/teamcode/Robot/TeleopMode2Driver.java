@@ -237,6 +237,7 @@ public class TeleopMode2Driver extends NextFTCOpMode {
         telemetry.addData("Color Sort", chassis.getColorSortModeString());
         telemetry.addData("Programming", programmingMode ? "★ ACTIVE ★" : "Inactive");
         telemetry.addData("Sequence", formatSequence());
+        telemetry.update();
     }
 
     @Override
