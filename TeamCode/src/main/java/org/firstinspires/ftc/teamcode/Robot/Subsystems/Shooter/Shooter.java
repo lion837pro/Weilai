@@ -118,14 +118,15 @@ public class Shooter implements Subsystem {
                 ActiveOpMode.telemetry().addData("Adaptive Mode", "Low=%.5f, High=%.5f",
                         ShooterConstants.LOW_SPEED_KV, ShooterConstants.HIGH_SPEED_KV);
             }
-            ActiveOpMode.telemetry().update();
+            // Don't call update() here - let the OpMode handle telemetry updates
         } catch (Exception e) {
             // Failsafe if telemetry isn't ready
         }
     }
 
     public double getVelocity(){
-        return (Sh1.getVelocity()) / 2.0;
+        // Only one motor active, so no averaging needed
+        return Sh1.getVelocity();
     }
 
     public void toVelocity(double velocity){
