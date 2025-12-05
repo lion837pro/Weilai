@@ -80,10 +80,10 @@ public class SpindexerConstants {
     }
 
     // ===== CONTROL GAINS =====
-    // Position PID for precise indexing
-    public static final double kP = 0.01;
-    public static final double kI = 0.0;
-    public static final double kD = 0.001;
+    // Optimized Position PID for precise indexing
+    public static final double kP = 0.015;     // Proportional - increased for faster response
+    public static final double kI = 0.00001;   // Integral - eliminates steady-state position error
+    public static final double kD = 0.002;     // Derivative - improved damping and overshoot reduction
 
     // Feedforward for consistent motion
     public static final double kS = 0.05;  // Static friction compensation
