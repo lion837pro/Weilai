@@ -66,7 +66,7 @@ public class ChassisConstants {
     public static PathConstraints pathConstraints = new PathConstraints(
             0.995,
             0.02,     // velocityConstraint: Reduced from 0.1 to 0.02 for tighter control
-            0.02,     // translationalConstraint: Reduced from 0.1 to 0.02 for immediate PID engagement
+            0.01,     // translationalConstraint: Ultra-tight 0.01 for maximum PID responsiveness
             0.009,
             50,
             1.25,

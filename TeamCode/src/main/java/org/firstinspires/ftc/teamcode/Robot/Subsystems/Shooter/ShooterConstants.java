@@ -43,10 +43,12 @@ public class ShooterConstants {
     public static final boolean USE_ADAPTIVE_KV = false;
 
     // ===== SIMPLE MODE CONSTANTS (USE_ADAPTIVE_KV = false) =====
-    // Reduced kP to minimize oscillation now that velocity reading is fixed
-    public static final double kP = 0.0012;
-    public static final double kS = 0.10;
-    public static final double kV = 0.00040;
+    // Optimized PID coefficients for velocity control
+    public static final double kP = 0.0012;    // Proportional - tuned to prevent oscillation
+    public static final double kI = 0.00001;   // Integral - eliminates steady-state error
+    public static final double kD = 0.00001;   // Derivative - reduces overshoot and settling time
+    public static final double kS = 0.10;      // Static friction compensation
+    public static final double kV = 0.00040;   // Velocity feedforward
 
     // ===== ADVANCED MODE CONSTANTS (USE_ADAPTIVE_KV = true) =====
     // Use these if simple mode doesn't work well across your velocity range

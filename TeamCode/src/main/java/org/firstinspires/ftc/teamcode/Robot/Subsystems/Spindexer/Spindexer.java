@@ -62,6 +62,11 @@ public class Spindexer implements Subsystem {
     private double currentPower = 0;
     private double encoderOffset = 0;          // Virtual encoder reset offset
 
+    // PID state variables
+    private double integralSum = 0.0;          // Accumulated error for integral term
+    private double lastError = 0.0;            // Previous error for derivative term
+    private long lastPIDTime = 0;              // Last time PID was calculated
+
     // Shooter offset state (for mechanical clearance)
     private boolean isInOffsetPosition = false;  // True when spindexer is offset for shooter spin-up
     private double baseShooterTicks = 0;         // The base shooter position (before offset)
@@ -132,6 +137,10 @@ public class Spindexer implements Subsystem {
 
         // Position control loop
         if (hasTarget && !isSettling) {
+            long currentTime = System.nanoTime();
+            double dt = lastPIDTime == 0 ? 0.02 : (currentTime - lastPIDTime) / 1e9;
+            lastPIDTime = currentTime;
+
             double error = targetTicks - getCurrentTicks();
 
             // Check if at position
@@ -140,9 +149,26 @@ public class Spindexer implements Subsystem {
                 isSettling = true;
                 settleTimer.reset();
                 setPower(0);
+                // Reset PID state
+                integralSum = 0.0;
+                lastError = 0.0;
             } else {
-                // PID control
-                double power = error * SpindexerConstants.kP;
+                // Full PID control
+                // Proportional term
+                double p = SpindexerConstants.kP * error;
+
+                // Integral term (with anti-windup)
+                integralSum += error * dt;
+                integralSum = Math.max(-50, Math.min(50, integralSum)); // Clamp integral
+                double i = SpindexerConstants.kI * integralSum;
+
+                // Derivative term
+                double derivative = (error - lastError) / dt;
+                double d = SpindexerConstants.kD * derivative;
+                lastError = error;
+
+                // Combine PID terms
+                double power = p + i + d;
 
                 // Add static friction compensation
                 if (Math.abs(power) > 0.01) {
@@ -187,6 +213,11 @@ public class Spindexer implements Subsystem {
         if (SpindexerConstants.OPTIMIZE_ROTATION_DIRECTION) {
             targetTicks = optimizeTarget(targetTicks);
         }
+
+        // Reset PID state for new target
+        integralSum = 0.0;
+        lastError = 0.0;
+        lastPIDTime = 0;
 
         hasTarget = true;
         isMoving = true;
