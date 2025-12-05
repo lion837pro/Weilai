@@ -41,8 +41,8 @@ public class DriveCommands {
                     if (Math.abs(st) < 0.05) st = 0;
                     if (Math.abs(tr) < 0.05) tr = 0;
 
-                    // Use custom holonomic drive
-                    chassis.driveHolonomic(fw, st, tr);
+                    // Use custom holonomic drive with field/robot orientation
+                    chassis.driveHolonomic(fw, st, tr, robotCentric);
 
                     // Debug telemetry
                     ActiveOpMode.telemetry().addData("Forward", "%.2f", fw);

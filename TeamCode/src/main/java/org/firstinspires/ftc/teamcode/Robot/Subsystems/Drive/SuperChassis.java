@@ -271,8 +271,12 @@ public class SuperChassis implements Subsystem {
     }
     /**
      * True holonomic mecanum drive with all axes working together
+     * @param forward Forward/backward movement (-1 to 1)
+     * @param strafe Left/right movement (-1 to 1)
+     * @param turn Rotation movement (-1 to 1)
+     * @param robotCentric If true, robot-oriented; if false, field-oriented
      */
-    public void driveHolonomic(double forward, double strafe, double turn) {
+    public void driveHolonomic(double forward, double strafe, double turn, boolean robotCentric) {
         try {
             // Get motor list from your custom chassis
             if (follower() == null || follower().getDrivetrain() == null) return;
@@ -280,14 +284,24 @@ public class SuperChassis implements Subsystem {
             // Cast to your custom Chassis type to access motors
             com.pedropathing.Drivetrain drivetrain = follower().getDrivetrain();
 
-            // If using the Chassis from document 3, you'd need to access motors differently
-            // For now, let's use Pedro's drivetrain directly
+            // Field-oriented control: rotate inputs by robot heading
+            double rotatedForward = forward;
+            double rotatedStrafe = strafe;
+
+            if (!robotCentric) {
+                double heading = getAngle().inRad;
+                double cosH = Math.cos(-heading);
+                double sinH = Math.sin(-heading);
+
+                rotatedForward = forward * cosH - strafe * sinH;
+                rotatedStrafe = forward * sinH + strafe * cosH;
+            }
 
             // Mecanum drive math (standard holonomic)
-            double fl = forward + strafe + turn;
-            double fr = forward - strafe - turn;
-            double bl = forward - strafe + turn;
-            double br = forward + strafe - turn;
+            double fl = rotatedForward + rotatedStrafe + turn;
+            double fr = rotatedForward - rotatedStrafe - turn;
+            double bl = rotatedForward - rotatedStrafe + turn;
+            double br = rotatedForward + rotatedStrafe - turn;
 
             // Normalize while preserving direction ratios
             double maxMagnitude = Math.max(
