@@ -92,8 +92,8 @@ public class TeleopMode extends NextFTCOpMode {
         b.whenBecomesFalse(IntakeCommands.stopIntake(intake));
 
         // ===== SHOOTER CONTROLS =====
-        // X button: Fixed RPM shooting (no spindexer integration for quick shots)
-        x.whenTrue(ShooterCommands.runShooterPID(shooter, 1600));
+        // X button: Fixed RPM shooting with feedback (no spindexer integration for quick shots)
+        x.whenTrue(ShooterCommands.runShooterPID(shooter, 1600, feedback));
         x.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
 
         // Dpad Up: Reverse shooter (for clearing jams)

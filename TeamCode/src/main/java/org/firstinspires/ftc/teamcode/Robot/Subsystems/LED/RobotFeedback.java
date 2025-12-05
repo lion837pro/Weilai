@@ -28,6 +28,7 @@ public class RobotFeedback {
     public static final int RUMBLE_INTAKE_SUCCESS = 150;
     public static final int RUMBLE_SHOT_FIRED = 200;
     public static final int RUMBLE_SPINDEXER_FULL = 400;
+    public static final int RUMBLE_SHOOTER_READY = 100;
 
     // Rumble intensities (0.0 to 1.0)
     public static final double RUMBLE_LIGHT = 0.3;
@@ -153,6 +154,20 @@ public class RobotFeedback {
 
         // Gamepad rumble
         rumbleBoth(RUMBLE_STRONG, RUMBLE_SHOT_FIRED);
+    }
+
+    /**
+     * Call when shooter reaches target RPM
+     */
+    public void onShooterAtRPM() {
+        // Stop strobing, set solid color
+        isStrobing = false;
+        if (led != null) {
+            led.set(strobeColor); // Keep the current ball color
+        }
+
+        // Light rumble to signal ready
+        rumbleBoth(RUMBLE_LIGHT, RUMBLE_SHOOTER_READY);
     }
 
     /**
