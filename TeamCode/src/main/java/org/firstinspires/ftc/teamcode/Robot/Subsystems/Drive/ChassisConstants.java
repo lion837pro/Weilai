@@ -25,6 +25,11 @@ public class ChassisConstants {
     public  static  final  boolean brInverted = false;
     public  static  final  boolean blInverted = false;
 
+    // TeleOp drive power multiplier - Tune this to match tuner speed
+    // Default: 1.0 (100%), increase if TeleOp is slower than tuner
+    // Typical range: 1.0 to 1.5
+    public static final double TELEOP_DRIVE_POWER_SCALE = 1.3;
+
 
     public static final MecanumConstants driveConstants = new MecanumConstants()
             .maxPower(1)
@@ -54,11 +59,14 @@ public class ChassisConstants {
      tValueConstraint, velocityConstraint, translationalConstraint, headingConstraint, timeoutConstraint,
      brakingStrength, BEZIER_CURVE_SEARCH_LIMIT, brakingStart
      The BEZIER_CURVE_SEARCH_LIMIT should typically be left at 10 and shouldn't be changed.
+
+     velocityConstraint: Velocity tolerance (inches/sec) - PID engages when velocity error exceeds this
+     translationalConstraint: Position tolerance (inches) - PID engages when position error exceeds this
      */
     public static PathConstraints pathConstraints = new PathConstraints(
             0.995,
-            0.1,
-            0.1,
+            0.02,     // velocityConstraint: Reduced from 0.1 to 0.02 for tighter control
+            0.01,     // translationalConstraint: Ultra-tight 0.01 for maximum PID responsiveness
             0.009,
             50,
             1.25,

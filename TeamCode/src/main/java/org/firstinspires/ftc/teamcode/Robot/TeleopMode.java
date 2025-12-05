@@ -131,7 +131,7 @@ public class TeleopMode extends NextFTCOpMode {
     @Override
     public void onWaitForStart() {
         // Optional: Home spindexer during init
-        SpindexerCommands.homeSpindexer(spindexer).invoke();
+        // SpindexerCommands.homeSpindexer(spindexer).invoke();
     }
 
     @Override

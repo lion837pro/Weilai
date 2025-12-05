@@ -28,31 +28,29 @@ public class Shooter implements Subsystem {
 
     @Override
     public void initialize() {
-        this.controller = new VelocityProfileController(
-                ShooterConstants.kP,
-                ShooterConstants.kS,
-                ShooterConstants.kV);
-
         this.Sh1 = new MotorEx(ShooterConstants.shootername1).reversed();
        // this.Sh2 = new MotorEx(ShooterConstants.shootername2);
 
         Sh1.brakeMode();
       //  Sh2.brakeMode();
+
         // Initialize slew rate limiter
-        // maxRateOfChange = how fast power can change per second
-        // Example: 1.5 means 0 to 1.0 power takes ~0.67 seconds
         this.slewRateLimiter = new SlewRateLimiter(ShooterConstants.MAX_ACCELERATION);
 
-        // Initialize controller (adaptive or simple based on constants)
+        // Initialize controller with full PIDF gains
         if (ShooterConstants.USE_ADAPTIVE_KV) {
             this.controller = new VelocityProfileController(
                     ShooterConstants.kP,
+                    ShooterConstants.kI,
+                    ShooterConstants.kD,
                     ShooterConstants.kS,
                     ShooterConstants.TRANSITION_SPEED
             );
         } else {
             this.controller = new VelocityProfileController(
                     ShooterConstants.kP,
+                    ShooterConstants.kI,
+                    ShooterConstants.kD,
                     ShooterConstants.kS,
                     ShooterConstants.kV
             );
