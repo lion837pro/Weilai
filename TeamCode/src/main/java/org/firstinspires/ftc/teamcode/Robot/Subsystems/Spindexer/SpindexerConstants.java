@@ -45,6 +45,9 @@ public class SpindexerConstants {
     public static final int POSITION_COUNT = 6;
     public static final int SLOTS_COUNT = 3;  // Number of ball slots
 
+    // ===== SHOOTING SEQUENCE TIMING =====
+    public static final long FEED_DURATION_MS = 300;  // Time to feed ball into shooter (milliseconds)
+
     // Intake positions (where balls load INTO the spindexer)
     public static final int INTAKE_POSITION_1 = 0;  // Slot A at intake
     public static final int INTAKE_POSITION_2 = 2;  // Slot B at intake

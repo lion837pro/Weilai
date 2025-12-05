@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.Robot.Subsystems.Spindexer;
 
+import com.qualcomm.robotcore.util.ElapsedTime;
+
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.SuperChassis;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants.BallColor;
@@ -214,6 +216,8 @@ public class SpindexerCommands {
                                                            boolean continuous) {
         final ShootState[] state = {ShootState.MOVING_TO_SHOOTER};
         final BallColor[] currentBallColor = {BallColor.UNKNOWN};
+        final ElapsedTime feedTimer = new ElapsedTime();
+        final boolean[] feedTimerStarted = {false};
 
         return new LambdaCommand()
                 .named(continuous ? "smartFeedContinuous" : "smartFeed")
@@ -276,15 +280,23 @@ public class SpindexerCommands {
                             break;
 
                         case FEEDING:
-                            intake.MoveIn(1.0);  // Feed the ball
-
-                            // Mark ball as shot and provide feedback
-                            if (feedback != null) {
-                                feedback.onBallShot(currentBallColor[0]);
+                            // Start timer on first entry to FEEDING state
+                            if (!feedTimerStarted[0]) {
+                                feedTimer.reset();
+                                feedTimerStarted[0] = true;
+                                if (feedback != null) {
+                                    feedback.onBallShot(currentBallColor[0]);
+                                }
                             }
 
-                            spindexer.markCurrentSlotEmpty();
-                            state[0] = ShootState.NEXT_BALL;
+                            intake.MoveIn(1.0);  // Feed the ball
+
+                            // Wait for feeding duration before transitioning
+                            if (feedTimer.milliseconds() >= SpindexerConstants.FEED_DURATION_MS) {
+                                spindexer.markCurrentSlotEmpty();
+                                state[0] = ShootState.NEXT_BALL;
+                                feedTimerStarted[0] = false;
+                            }
                             break;
 
                         case NEXT_BALL:
@@ -385,6 +397,8 @@ public class SpindexerCommands {
         final ShootState[] state = {ShootState.MOVING_TO_SHOOTER};
         final BallColor[] currentBallColor = {BallColor.UNKNOWN};
         final int[] lastTagId = {-1};
+        final ElapsedTime feedTimer = new ElapsedTime();
+        final boolean[] feedTimerStarted = {false};
 
         return new LambdaCommand()
                 .named(continuous ? "colorSortedFeedContinuous" : "colorSortedFeed")
@@ -469,15 +483,24 @@ public class SpindexerCommands {
                             break;
 
                         case FEEDING:
-                            intake.MoveIn(1.0);
-
-                            if (feedback != null) {
-                                feedback.onBallShot(currentBallColor[0]);
+                            // Start timer on first entry to FEEDING state
+                            if (!feedTimerStarted[0]) {
+                                feedTimer.reset();
+                                feedTimerStarted[0] = true;
+                                if (feedback != null) {
+                                    feedback.onBallShot(currentBallColor[0]);
+                                }
                             }
 
-                            spindexer.markCurrentSlotEmpty();
-                            currentIndex[0]++;
-                            state[0] = ShootState.NEXT_BALL;
+                            intake.MoveIn(1.0);
+
+                            // Wait for feeding duration before transitioning
+                            if (feedTimer.milliseconds() >= SpindexerConstants.FEED_DURATION_MS) {
+                                spindexer.markCurrentSlotEmpty();
+                                currentIndex[0]++;
+                                state[0] = ShootState.NEXT_BALL;
+                                feedTimerStarted[0] = false;
+                            }
                             break;
 
                         case NEXT_BALL:
@@ -566,6 +589,8 @@ public class SpindexerCommands {
         final int[] currentIndex = {0};
         final ShootState[] state = {ShootState.MOVING_TO_SHOOTER};
         final BallColor[] currentBallColor = {BallColor.UNKNOWN};
+        final ElapsedTime feedTimer = new ElapsedTime();
+        final boolean[] feedTimerStarted = {false};
 
         return new LambdaCommand()
                 .named("customSequenceFeed")
@@ -634,15 +659,24 @@ public class SpindexerCommands {
                             break;
 
                         case FEEDING:
-                            intake.MoveIn(1.0);
-
-                            if (feedback != null) {
-                                feedback.onBallShot(currentBallColor[0]);
+                            // Start timer on first entry to FEEDING state
+                            if (!feedTimerStarted[0]) {
+                                feedTimer.reset();
+                                feedTimerStarted[0] = true;
+                                if (feedback != null) {
+                                    feedback.onBallShot(currentBallColor[0]);
+                                }
                             }
 
-                            spindexer.markCurrentSlotEmpty();
-                            currentIndex[0]++;
-                            state[0] = ShootState.NEXT_BALL;
+                            intake.MoveIn(1.0);
+
+                            // Wait for feeding duration before transitioning
+                            if (feedTimer.milliseconds() >= SpindexerConstants.FEED_DURATION_MS) {
+                                spindexer.markCurrentSlotEmpty();
+                                currentIndex[0]++;
+                                state[0] = ShootState.NEXT_BALL;
+                                feedTimerStarted[0] = false;
+                            }
                             break;
 
                         case NEXT_BALL:

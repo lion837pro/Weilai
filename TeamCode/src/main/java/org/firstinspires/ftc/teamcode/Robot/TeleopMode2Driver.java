@@ -27,130 +27,39 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * ═════════════════════════════════════════════════════════════════════════
- *                          2-DRIVER TELEOP MODE
- * ═════════════════════════════════════════════════════════════════════════
+ * 2-DRIVER TELEOP MODE
+ * GP1(Driver): Same as single-driver | GP2(Operator): Advanced spindexer control
  *
- * GAMEPAD 1 (DRIVER) - Movement & Scoring
- * GAMEPAD 2 (SPINDEXER OPERATOR) - Ball Management & Custom Sequences
- *
- * ═════════════════════════════════════════════════════════════════════════
- * GAMEPAD 1 (DRIVER) QUICK REFERENCE:
- * ─────────────────────────────────────────────────────────────────────────
- * Movement:
- *   Left Stick        → Drive (field-oriented holonomic)
- *   Right Stick X     → Turn
- *   Options           → Reset heading
- *
- * Intake:
- *   A Button          → Intake with auto-spindexer
- *   B Button          → Reverse intake
- *
- * Shooter:
- *   X Button          → Fixed 1600 RPM shoot (with vibration)
- *   Y Button          → Fixed 1800 RPM with spindexer
- *   Right Bumper      → Auto-aim color-sorted shooting ★ PRIMARY ★
- *   Right Trigger     → Manual shooter power
- *   Dpad Up           → Reverse shooter (jam clear)
- *
- * Vision:
- *   Left Bumper       → Vision-assisted alignment
- *   Dpad Left         → Reset color sort tag
- *
- * ═════════════════════════════════════════════════════════════════════════
- * GAMEPAD 2 (SPINDEXER OPERATOR) QUICK REFERENCE:
- * ─────────────────────────────────────────────────────────────────────────
- * Direct Slot Control:
- *   A Button          → Select/shoot slot 0
- *   B Button          → Select/shoot slot 1
- *   X Button          → Select/shoot slot 2
- *
- * Custom Sequence Programming:
- *   Left Bumper HOLD  → Enter programming mode
- *   + A/B/X           → Add slots to sequence (rumbles on each)
- *   Release LB        → Save sequence (rumbles to confirm)
- *   Y Button          → Execute programmed sequence
- *   Right Bumper      → Reset/clear sequence (rumbles to confirm)
- *
- * Manual Control:
- *   Left Trigger      → Spin backward
- *   Right Trigger     → Spin forward
- *   Dpad Up           → Home spindexer
- *   Dpad Down         → Index forward
- *   Dpad Left         → Index backward
- *   Dpad Right        → Go to intake position
- *
- * ═════════════════════════════════════════════════════════════════════════
- * CUSTOM SEQUENCE EXAMPLE:
- * ─────────────────────────────────────────────────────────────────────────
- * To shoot in order 2→0→1:
- *   1. Hold Left Bumper (GP2)
- *   2. Press X (adds slot 2, short rumble)
- *   3. Press A (adds slot 0, short rumble)
- *   4. Press B (adds slot 1, short rumble)
- *   5. Release Left Bumper (sequence saved, rumble confirms)
- *   6. Press Y to execute
- *
- * Telemetry shows: "Custom Sequence: [2 → 0 → 1]"
- * ═════════════════════════════════════════════════════════════════════════
+ * GP2 PROGRAMMING: Hold LB + press A/B/X to build sequence → Release LB → Press Y to execute
+ * GP2 SLOTS: A=Slot0 | B=Slot1 | X=Slot2 | Y=ExecuteSequence | RB=ResetSequence
+ * GP2 MANUAL: LT=SpinBack | RT=SpinFwd | DpadUp=Home | DpadDown=IndexFwd | DpadLeft=IndexBack | DpadRight=PrepIntake
  */
 @TeleOp(name = "2 Driver Mode", group = "Competition")
 public class TeleopMode2Driver extends NextFTCOpMode {
 
-    // ═════════════════════════════════════════════════════════════════════
-    //                           SUBSYSTEM INSTANCES
-    // ═════════════════════════════════════════════════════════════════════
-
+    // Subsystems
     private final SuperChassis chassis = SuperChassis.INSTANCE;
     private final Intake intake = Intake.INSTANCE;
     private final Shooter shooter = Shooter.INSTANCE;
     private final Spindexer spindexer = Spindexer.INSTANCE;
-
-    // LED and feedback system
     private REV312010 led;
     private RobotFeedback feedback;
 
-    // ═════════════════════════════════════════════════════════════════════
-    //                       GAMEPAD 1 BUTTON DECLARATIONS
-    // ═════════════════════════════════════════════════════════════════════
+    // GP1 buttons
+    private Button gp1_a, gp1_b, gp1_x, gp1_y;
+    private Button gp1_right_bumper, gp1_left_bumper;
+    private Button gp1_options, gp1_dpad_up, gp1_dpad_down, gp1_dpad_left;
 
-    private Button gp1_a;
-    private Button gp1_b;
-    private Button gp1_x;
-    private Button gp1_y;
-    private Button gp1_right_bumper;
-    private Button gp1_left_bumper;
-    private Button gp1_options;
-    private Button gp1_dpad_up;
-    private Button gp1_dpad_down;
-    private Button gp1_dpad_left;
+    // GP2 buttons
+    private Button gp2_a, gp2_b, gp2_x, gp2_y;
+    private Button gp2_right_bumper, gp2_left_bumper;
+    private Button gp2_dpad_up, gp2_dpad_down, gp2_dpad_left, gp2_dpad_right;
 
-    // ═════════════════════════════════════════════════════════════════════
-    //                       GAMEPAD 2 BUTTON DECLARATIONS
-    // ═════════════════════════════════════════════════════════════════════
-
-    private Button gp2_a;
-    private Button gp2_b;
-    private Button gp2_x;
-    private Button gp2_y;
-    private Button gp2_right_bumper;
-    private Button gp2_left_bumper;
-    private Button gp2_dpad_up;
-    private Button gp2_dpad_down;
-    private Button gp2_dpad_left;
-    private Button gp2_dpad_right;
-
-    // ═════════════════════════════════════════════════════════════════════
-    //                       CUSTOM SEQUENCE STATE
-    // ═════════════════════════════════════════════════════════════════════
-
+    // Custom sequence state
     private final List<Integer> customSequence = new ArrayList<>();
     private boolean programmingMode = false;
 
-    // ═════════════════════════════════════════════════════════════════════
-    //                           INITIALIZATION
-    // ═════════════════════════════════════════════════════════════════════
-
+    // Constructor
     public TeleopMode2Driver() {
         addComponents(new PedroComponent(ChassisConstants::buildPedroPathing));
         addComponents(chassis.asCOMPONENT());
@@ -161,9 +70,7 @@ public class TeleopMode2Driver extends NextFTCOpMode {
 
     @Override
     public void onInit() {
-        // ─────────────────────────────────────────────────────────────────
-        // Initialize Feedback System (LED + Rumble)
-        // ─────────────────────────────────────────────────────────────────
+        // Initialize feedback system
         try {
             led = new REV312010();
         } catch (Exception e) {
@@ -172,9 +79,7 @@ public class TeleopMode2Driver extends NextFTCOpMode {
         feedback = new RobotFeedback(led);
         feedback.setGamepads(gamepad1, gamepad2);
 
-        // ─────────────────────────────────────────────────────────────────
-        // Initialize Gamepad 1 Buttons (DRIVER)
-        // ─────────────────────────────────────────────────────────────────
+        // Initialize GP1 buttons
         this.gp1_a = button(() -> gamepad1.a);
         this.gp1_b = button(() -> gamepad1.b);
         this.gp1_x = button(() -> gamepad1.x);
@@ -186,9 +91,7 @@ public class TeleopMode2Driver extends NextFTCOpMode {
         this.gp1_dpad_down = button(() -> gamepad1.dpad_down);
         this.gp1_dpad_left = button(() -> gamepad1.dpad_left);
 
-        // ─────────────────────────────────────────────────────────────────
-        // Initialize Gamepad 2 Buttons (SPINDEXER OPERATOR)
-        // ─────────────────────────────────────────────────────────────────
+        // Initialize GP2 buttons
         this.gp2_a = button(() -> gamepad2.a);
         this.gp2_b = button(() -> gamepad2.b);
         this.gp2_x = button(() -> gamepad2.x);
@@ -200,42 +103,24 @@ public class TeleopMode2Driver extends NextFTCOpMode {
         this.gp2_dpad_left = button(() -> gamepad2.dpad_left);
         this.gp2_dpad_right = button(() -> gamepad2.dpad_right);
 
-        // ═════════════════════════════════════════════════════════════════
-        //                  GAMEPAD 1 CONTROLS (DRIVER)
-        // ═════════════════════════════════════════════════════════════════
-
-        // ─────────────────────────────────────────────────────────────────
-        // System Controls
-        // ─────────────────────────────────────────────────────────────────
+        // GP1 system controls
         gp1_options.whenBecomesTrue(DriveCommands.resetHeading(chassis));
+        gp1_dpad_left.whenBecomesTrue(new InstantCommand("Reset Color Sort Tag", chassis::resetColorSortTag));
 
-        gp1_dpad_left.whenBecomesTrue(new InstantCommand(
-                "Reset Color Sort Tag",
-                chassis::resetColorSortTag
-        ));
-
-        // ─────────────────────────────────────────────────────────────────
-        // Intake Controls
-        // ─────────────────────────────────────────────────────────────────
+        // GP1 intake controls
         gp1_a.whenBecomesTrue(IntakeCommands.runIntakeWithSpindexer(spindexer, intake, 0.6, feedback));
         gp1_a.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
         gp1_a.whenBecomesFalse(IntakeCommands.stopIntake(intake));
-
         gp1_b.whenBecomesTrue(IntakeCommands.runIntake(intake, -0.6));
         gp1_b.whenBecomesFalse(IntakeCommands.stopIntake(intake));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Shooter Controls
-        // ─────────────────────────────────────────────────────────────────
+        // GP1 shooter controls
         gp1_x.whenTrue(ShooterCommands.runShooterPID(shooter, 1600, feedback));
         gp1_x.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
-
         gp1_dpad_up.whenTrue(ShooterCommands.runShooterPID(shooter, -600));
         gp1_dpad_up.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Full Shooting Sequences
-        // ─────────────────────────────────────────────────────────────────
+        // GP1 full shooting sequences
         gp1_right_bumper.whenTrue(ShooterCommands.teleopShootColorSortedAutoAim(
                 shooter, spindexer, intake, chassis, feedback));
         gp1_right_bumper.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
@@ -247,71 +132,46 @@ public class TeleopMode2Driver extends NextFTCOpMode {
         gp1_y.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
         gp1_y.whenBecomesFalse(IntakeCommands.stopIntake(intake));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Vision Controls
-        // ─────────────────────────────────────────────────────────────────
-        gp1_left_bumper.whenTrue(
-                DriveCommands.alignWithJoysticks(chassis,
-                        () -> -gamepad1.left_stick_y,
-                        () -> -gamepad1.left_stick_x)
-        );
+        // GP1 vision controls
+        gp1_left_bumper.whenTrue(DriveCommands.alignWithJoysticks(chassis,
+                () -> -gamepad1.left_stick_y, () -> -gamepad1.left_stick_x));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Default Commands (Gamepad 1)
-        // ─────────────────────────────────────────────────────────────────
-        chassis.setDefaultCommand(
-                DriveCommands.runWithJoysticks(chassis,
-                        () -> -gamepad1.left_stick_y,
-                        () -> -gamepad1.left_stick_x,
-                        () -> -gamepad1.right_stick_x,
-                        false));
+        // GP1 default commands
+        chassis.setDefaultCommand(DriveCommands.runWithJoysticks(chassis,
+                () -> -gamepad1.left_stick_y, () -> -gamepad1.left_stick_x,
+                () -> -gamepad1.right_stick_x, false));
+        shooter.setDefaultCommand(ShooterCommands.runManualShooter(shooter,
+                () -> gamepad1.right_trigger));
 
-        shooter.setDefaultCommand(
-                ShooterCommands.runManualShooter(shooter,
-                        () -> gamepad1.right_trigger));
-
-        // ═════════════════════════════════════════════════════════════════
-        //            GAMEPAD 2 CONTROLS (SPINDEXER OPERATOR)
-        // ═════════════════════════════════════════════════════════════════
-
-        // ─────────────────────────────────────────────────────────────────
-        // Programming Mode Toggle
-        // ─────────────────────────────────────────────────────────────────
+        // GP2 programming mode
         gp2_left_bumper.whenBecomesTrue(new InstantCommand("Enter Programming Mode", () -> {
             programmingMode = true;
-            gamepad2.rumble(200); // Rumble to confirm entry
+            gamepad2.rumble(200);
         }));
-
         gp2_left_bumper.whenBecomesFalse(new InstantCommand("Exit Programming Mode", () -> {
             programmingMode = false;
-            if (!customSequence.isEmpty()) {
-                gamepad2.rumble(100); // Rumble to confirm sequence saved
-            }
+            if (!customSequence.isEmpty()) gamepad2.rumble(100);
         }));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Slot Selection / Programming
-        // ─────────────────────────────────────────────────────────────────
+        // GP2 slot selection/programming
         gp2_a.whenBecomesTrue(new InstantCommand("Slot 0 Action", () -> {
-            if (programmingMode && gamepad2.left_bumper) {
+            if (programmingMode) {
                 customSequence.add(0);
-                gamepad2.rumble(50); // Quick tap confirmation
+                gamepad2.rumble(50);
             } else {
                 spindexer.goToPosition(SpindexerConstants.getShooterPosition(0));
             }
         }));
-
         gp2_b.whenBecomesTrue(new InstantCommand("Slot 1 Action", () -> {
-            if (programmingMode && gamepad2.left_bumper) {
+            if (programmingMode) {
                 customSequence.add(1);
                 gamepad2.rumble(50);
             } else {
                 spindexer.goToPosition(SpindexerConstants.getShooterPosition(1));
             }
         }));
-
         gp2_x.whenBecomesTrue(new InstantCommand("Slot 2 Action", () -> {
-            if (programmingMode && gamepad2.left_bumper) {
+            if (programmingMode) {
                 customSequence.add(2);
                 gamepad2.rumble(50);
             } else {
@@ -319,9 +179,7 @@ public class TeleopMode2Driver extends NextFTCOpMode {
             }
         }));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Sequence Execution and Reset
-        // ─────────────────────────────────────────────────────────────────
+        // GP2 sequence execution and reset
         gp2_y.whenTrue(createCustomSequenceCommand());
         gp2_y.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
         gp2_y.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
@@ -329,66 +187,41 @@ public class TeleopMode2Driver extends NextFTCOpMode {
 
         gp2_right_bumper.whenBecomesTrue(new InstantCommand("Reset Custom Sequence", () -> {
             customSequence.clear();
-            gamepad2.rumble(300); // Long rumble to confirm reset
+            gamepad2.rumble(300);
         }));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Manual Spindexer Controls
-        // ─────────────────────────────────────────────────────────────────
+        // GP2 manual spindexer controls
         gp2_dpad_up.whenBecomesTrue(SpindexerCommands.homeSpindexer(spindexer));
         gp2_dpad_down.whenBecomesTrue(SpindexerCommands.indexForward(spindexer));
         gp2_dpad_left.whenBecomesTrue(SpindexerCommands.indexBackward(spindexer));
         gp2_dpad_right.whenBecomesTrue(SpindexerCommands.prepareForIntake(spindexer));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Default Command (Gamepad 2)
-        // ─────────────────────────────────────────────────────────────────
-        spindexer.setDefaultCommand(
-                SpindexerCommands.manualSpin(spindexer,
-                        () -> gamepad2.left_trigger - gamepad2.right_trigger));
+        // GP2 default command
+        spindexer.setDefaultCommand(SpindexerCommands.manualSpin(spindexer,
+                () -> gamepad2.right_trigger - gamepad2.left_trigger));
 
-        // ─────────────────────────────────────────────────────────────────
-        // Set LED to ready state
-        // ─────────────────────────────────────────────────────────────────
         feedback.setReady();
     }
 
-    // ═════════════════════════════════════════════════════════════════════
-    //                           HELPER METHODS
-    // ═════════════════════════════════════════════════════════════════════
-
-    /**
-     * Creates command to shoot custom sequence programmed by operator
-     */
+    // Helper: Create custom sequence command
     private dev.nextftc.core.commands.Command createCustomSequenceCommand() {
         return ShooterCommands.teleopShootCustomSequence(
-                shooter, spindexer, intake, 1800,
-                customSequence, feedback
-        );
+                shooter, spindexer, intake, 1800, customSequence, feedback);
     }
 
-    /**
-     * Format custom sequence for telemetry display
-     */
+    // Helper: Format sequence for telemetry
     private String formatSequence() {
-        if (customSequence.isEmpty()) {
-            return "[Empty - Hold LB + A/B/X to program]";
-        }
+        if (customSequence.isEmpty()) return "[Empty - Hold LB + A/B/X]";
         StringBuilder sb = new StringBuilder("[");
         for (int i = 0; i < customSequence.size(); i++) {
             sb.append(customSequence.get(i));
-            if (i < customSequence.size() - 1) {
-                sb.append(" → ");
-            }
+            if (i < customSequence.size() - 1) sb.append(" → ");
         }
         sb.append("]");
         return sb.toString();
     }
 
-    // ═════════════════════════════════════════════════════════════════════
-    //                           LIFECYCLE METHODS
-    // ═════════════════════════════════════════════════════════════════════
-
+    // Lifecycle methods
     @Override
     public void onWaitForStart() {}
 
@@ -398,38 +231,17 @@ public class TeleopMode2Driver extends NextFTCOpMode {
     @Override
     public void onUpdate() {
         BindingManager.update();
+        if (feedback != null) feedback.update();
 
-        // Update feedback for LED strobe effect
-        if (feedback != null) {
-            feedback.update();
-        }
-
-        // ─────────────────────────────────────────────────────────────────
-        // Telemetry Display
-        // ─────────────────────────────────────────────────────────────────
-        telemetry.addData("═══════════════════════════", "");
-        telemetry.addData("   COLOR SORT STATUS", "");
-        telemetry.addData("═══════════════════════════", "");
-        telemetry.addData("Mode", chassis.getColorSortModeString());
-        telemetry.addData("Override", "GP1: DPAD LEFT");
-        telemetry.addData("", "");
-
-        telemetry.addData("═══════════════════════════", "");
-        telemetry.addData("   SPINDEXER OPERATOR", "");
-        telemetry.addData("═══════════════════════════", "");
+        // Telemetry
+        telemetry.addData("Color Sort", chassis.getColorSortModeString());
         telemetry.addData("Programming", programmingMode ? "★ ACTIVE ★" : "Inactive");
         telemetry.addData("Sequence", formatSequence());
-        telemetry.addData("Controls", "LB+A/B/X=Program | RB=Reset | Y=Execute");
-        telemetry.addData("", "");
     }
 
     @Override
     public void onStop() {
         BindingManager.reset();
-
-        // Turn off LED when stopping
-        if (feedback != null) {
-            feedback.setIdle();
-        }
+        if (feedback != null) feedback.setIdle();
     }
 }
