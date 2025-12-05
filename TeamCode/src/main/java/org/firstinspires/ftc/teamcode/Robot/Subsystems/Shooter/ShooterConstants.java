@@ -30,11 +30,12 @@ public class ShooterConstants {
      * - 1.5 = Takes 0.67 seconds (gentle, good for belt slip prevention)
      * - 2.0 = Takes 0.5 seconds (moderate)
      * - 3.0 = Takes 0.33 seconds (aggressive)
-     * - 5.0 = Takes 0.2 seconds (very aggressive, may still slip)
+     * - 5.0 = Takes 0.2 seconds (very aggressive)
+     * - 8.0 = Takes 0.125 seconds (maximum responsiveness)
      * <p>
-     * START WITH 1.5 and increase if it's too slow
+     * Now that belt slip is fixed, increased to 8.0 for fast response
      */
-    public static final double MAX_ACCELERATION = 2;
+    public static final double MAX_ACCELERATION = 8.0;
 
     // ===== TUNING MODE SELECTOR =====
     // Set this to true if you want velocity-dependent kV (advanced)
@@ -42,8 +43,8 @@ public class ShooterConstants {
     public static final boolean USE_ADAPTIVE_KV = false;
 
     // ===== SIMPLE MODE CONSTANTS (USE_ADAPTIVE_KV = false) =====
-    // These are the Set 4 values (doubled kV for belt-slip scenario)
-    public static final double kP = 0.002;
+    // Reduced kP to minimize oscillation now that velocity reading is fixed
+    public static final double kP = 0.0012;
     public static final double kS = 0.10;
     public static final double kV = 0.00040;
 
