@@ -22,28 +22,36 @@ import dev.nextftc.ftc.ActiveOpMode;
 
 public class DriveCommands {
 
-    public static Command runWithJoysticks(SuperChassis chasis, DoubleSupplier forward, DoubleSupplier strafe, DoubleSupplier turn, boolean robotCentric){
-        return new LambdaCommand().
-                named("RunWithJoysticks").
-                requires(chasis).
-                setStart(follower()::startTeleOpDrive).
-                setUpdate(
-                        ()-> {
+    public static Command runWithJoysticks(SuperChassis chassis, DoubleSupplier forward, DoubleSupplier strafe, DoubleSupplier turn, boolean robotCentric){
+        return new LambdaCommand()
+                .named("RunWithJoysticks")
+                .requires(chassis)
+                .setStart(() -> {
+                    // Start teleop mode for Pedro tracking
+                    follower().startTeleOpDrive();
+                })
+                .setUpdate(() -> {
+                    // Invert Y-axis (gamepad convention)
+                    double fw = forward.getAsDouble();
+                    double st = -strafe.getAsDouble();
+                    double tr = -turn.getAsDouble();
 
-                            double fw = forward.getAsDouble();
-                            double st = strafe.getAsDouble();
-                            double tr = turn.getAsDouble();
+                    // Apply deadband
+                    if (Math.abs(fw) < 0.05) fw = 0;
+                    if (Math.abs(st) < 0.05) st = 0;
+                    if (Math.abs(tr) < 0.05) tr = 0;
 
-                            follower().setTeleOpDrive(fw, st, tr, robotCentric);
-                        }
-                ).
-                setStop(interrupted
-                                -> {
-                            chasis.stop();
-                        }
-                ).
-                setIsDone(()-> false).
-                setInterruptible(true);
+                    // Use custom holonomic drive
+                    chassis.driveHolonomic(fw, st, tr);
+
+                    // Debug telemetry
+                    ActiveOpMode.telemetry().addData("Forward", "%.2f", fw);
+                    ActiveOpMode.telemetry().addData("Strafe", "%.2f", st);
+                    ActiveOpMode.telemetry().addData("Turn", "%.2f", tr);
+                })
+                .setStop(interrupted -> chassis.stop())
+                .setIsDone(() -> false)
+                .setInterruptible(true);
     }
 
     public static Command resetHeading(SuperChassis chassis){

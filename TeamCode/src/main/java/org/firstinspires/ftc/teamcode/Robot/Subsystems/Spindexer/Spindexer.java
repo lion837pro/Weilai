@@ -77,7 +77,7 @@ public class Spindexer implements Subsystem {
     @Override
     public void initialize() {
         // Initialize motor
-        this.motor = new MotorEx(SpindexerConstants.MOTOR_NAME);
+        this.motor = new MotorEx(SpindexerConstants.spindexer);
         if (SpindexerConstants.MOTOR_INVERTED) {
             motor.reversed();
         }

@@ -269,7 +269,47 @@ public class SuperChassis implements Subsystem {
             // Follower not ready
         }
     }
+    /**
+     * True holonomic mecanum drive with all axes working together
+     */
+    public void driveHolonomic(double forward, double strafe, double turn) {
+        try {
+            // Get motor list from your custom chassis
+            if (follower() == null || follower().getDrivetrain() == null) return;
 
+            // Cast to your custom Chassis type to access motors
+            com.pedropathing.Drivetrain drivetrain = follower().getDrivetrain();
+
+            // If using the Chassis from document 3, you'd need to access motors differently
+            // For now, let's use Pedro's drivetrain directly
+
+            // Mecanum drive math (standard holonomic)
+            double fl = forward + strafe + turn;
+            double fr = forward - strafe + turn;
+            double bl = forward - strafe - turn;
+            double br = forward + strafe - turn;
+
+            // Normalize while preserving direction ratios
+            double maxMagnitude = Math.max(
+                    Math.max(Math.abs(fl), Math.abs(fr)),
+                    Math.max(Math.abs(bl), Math.abs(br))
+            );
+
+            if (maxMagnitude > 1.0) {
+                fl /= maxMagnitude;
+                fr /= maxMagnitude;
+                bl /= maxMagnitude;
+                br /= maxMagnitude;
+            }
+
+            // Apply to drivetrain
+            double[] powers = {fl, fr, bl, br};
+            drivetrain.runDrive(powers);
+
+        } catch (Exception e) {
+            ActiveOpMode.telemetry().addData("Holonomic Drive Error", e.getMessage());
+        }
+    }
     public void stop() {
 
         try {

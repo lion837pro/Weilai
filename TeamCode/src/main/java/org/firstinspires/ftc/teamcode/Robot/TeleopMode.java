@@ -69,6 +69,7 @@ public class TeleopMode extends NextFTCOpMode {
         this.dpad = button(() -> gamepad1.dpad_up);
         this.dpad_down = button(() -> gamepad1.dpad_down);
 
+
         options.whenBecomesTrue(DriveCommands.resetHeading(chassis));
 
         // ===== INTAKE WITH SPINDEXER (with LED + rumble feedback) =====
@@ -110,8 +111,8 @@ public class TeleopMode extends NextFTCOpMode {
         // ===== DRIVE CONTROLS =====
         chassis.setDefaultCommand(
                 DriveCommands.runWithJoysticks(chassis,
-                        () -> gamepad1.left_stick_y,
-                        () -> gamepad1.left_stick_x,
+                        () -> -gamepad1.left_stick_y,
+                        () -> -gamepad1.left_stick_x,
                         () -> -gamepad1.right_stick_x,
                         false));
 

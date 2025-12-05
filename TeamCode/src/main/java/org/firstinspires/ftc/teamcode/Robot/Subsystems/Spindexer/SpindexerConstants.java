@@ -23,15 +23,15 @@ import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants;
 public class SpindexerConstants {
 
     // ===== HARDWARE NAMES =====
-    public static final String MOTOR_NAME = "spindexer";
+    public static final String spindexer = "spin";
     public static final String LIMIT_SWITCH_NAME = "spindexerLimit";  // Magnetic limit switch for homing
-    public static final String COLOR_SENSOR_1_NAME = "colorSensor1";  // Detects ball at intake
-    public static final String COLOR_SENSOR_2_NAME = "colorSensor2";  // Secondary sensor (optional)
+    public static final String COLOR_SENSOR_1_NAME = "colorS1";  // Detects ball at intake
+    public static final String COLOR_SENSOR_2_NAME = "colorS2";  // Secondary sensor (optional)
 
     // ===== MOTOR CONFIGURATION =====
     public static final boolean MOTOR_INVERTED = false;
     public static final double TICKS_PER_REV = 28.0;  // GoBilda Yellow Jacket encoder ticks per motor revolution
-    public static final double GEAR_RATIO = 20.0;     // External gear ratio (motor:spindexer)
+    public static final double GEAR_RATIO = 19.2;     // External gear ratio (motor:spindexer)
 
     // Calculated: Total ticks for one full spindexer rotation
     public static final double TICKS_PER_SPINDEXER_REV = TICKS_PER_REV * GEAR_RATIO;

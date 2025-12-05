@@ -261,17 +261,6 @@ public class ShooterCommands {
         );
     }
 
-    /**
-     * TeleOp color-sorted shooting with auto-aim.
-     * Best option for competition - combines distance-based RPM with color sorting.
-     */
-    public static Command teleopShootColorSortedAutoAim(Shooter shooter, Spindexer spindexer,
-                                                         Intake intake, SuperChassis chassis) {
-        return new ParallelGroup(
-                autoRevShooter(shooter, chassis),
-                SpindexerCommands.smartFeedColorSortedContinuous(shooter, spindexer, intake, chassis)
-        );
-    }
 
     /**
      * TeleOp color-sorted shooting with auto-aim and feedback

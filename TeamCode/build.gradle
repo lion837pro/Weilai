@@ -35,6 +35,9 @@ dependencies {
     implementation 'dev.nextftc.extensions:pedro:1.0.0'
     implementation "com.bylazar:limelightproxy:1.0.3"
     implementation "com.bylazar:opmodecontrol:1.0.3"
-
+    implementation "com.bylazar:gamepad:1.0.4"
+    implementation "com.bylazar:fullpanels:1.0.10"
+    implementation "com.bylazar:field:1.0.5"
+    implementation "com.bylazar:configurables:1.0.4"
 
 }

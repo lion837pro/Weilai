@@ -25,6 +25,7 @@ public class ChassisConstants {
     public  static  final  boolean brInverted = false;
     public  static  final  boolean blInverted = false;
 
+
     public static final MecanumConstants driveConstants = new MecanumConstants()
             .maxPower(1)
             .rightFrontMotorName(frName)
@@ -34,16 +35,19 @@ public class ChassisConstants {
             .leftFrontMotorDirection(DcMotorSimple.Direction.FORWARD)
             .leftRearMotorDirection(DcMotorSimple.Direction.FORWARD)
             .rightFrontMotorDirection(DcMotorSimple.Direction.REVERSE)
-            .rightRearMotorDirection(DcMotorSimple.Direction.FORWARD);
+            .rightRearMotorDirection(DcMotorSimple.Direction.FORWARD)
+            .xVelocity(65.19982574)
+            .yVelocity(50.48943727);
 
     public static PinpointConstants localizerConstants = new PinpointConstants()
-            .forwardPodY(   3.5)
-            .strafePodX(-6.1)
+            .forwardPodY(   3.3)
+            .strafePodX(-6.6)
             .distanceUnit(DistanceUnit.INCH)
             .hardwareMapName("pinpoint")
             .encoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD)
             .forwardEncoderDirection(GoBildaPinpointDriver.EncoderDirection.FORWARD)
             .strafeEncoderDirection(GoBildaPinpointDriver.EncoderDirection.REVERSED);
+
 
     /**
      These are the PathConstraints in order:
@@ -64,19 +68,19 @@ public class ChassisConstants {
 
     public static FollowerConstants followerConstants = new FollowerConstants()
             .mass(8.1)
-            .forwardZeroPowerAcceleration(-25.9346931313679598)
-            .lateralZeroPowerAcceleration(-67.342491844080064)
+            .forwardZeroPowerAcceleration(-29.73161487098345)
+            .lateralZeroPowerAcceleration(-30.822693520646286)
             .translationalPIDFCoefficients(new PIDFCoefficients(
-                    0.03,
+                    0.2,
                     0,
-                    0,
+                    0.01,
                     0.015
             ))
             .translationalPIDFSwitch(4)
             .secondaryTranslationalPIDFCoefficients(new PIDFCoefficients(
-                    0.4,
+                    0.0,
                     0,
-                    0.005,
+                    0.,
                     0.0006
             ))
             .headingPIDFCoefficients(new PIDFCoefficients(

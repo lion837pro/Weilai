@@ -4,7 +4,7 @@ import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants;
 
 public class ShooterConstants {
     public static final String shootername1 = "Sh1";
-    public static final String shootername2 = "Sh2";
+    //public static final String shootername2 = "Sh2";
 
     public static final double TICKS_PER_REV = 28.0; // For GoBilda Yellow Jacket 1:1
     public static final double MAX_RPM = 6000.0;
@@ -34,7 +34,7 @@ public class ShooterConstants {
      * <p>
      * START WITH 1.5 and increase if it's too slow
      */
-    public static final double MAX_ACCELERATION = 0.75;
+    public static final double MAX_ACCELERATION = 2;
 
     // ===== TUNING MODE SELECTOR =====
     // Set this to true if you want velocity-dependent kV (advanced)
@@ -44,7 +44,7 @@ public class ShooterConstants {
     // ===== SIMPLE MODE CONSTANTS (USE_ADAPTIVE_KV = false) =====
     // These are the Set 4 values (doubled kV for belt-slip scenario)
     public static final double kP = 0.002;
-    public static final double kS = 0.15;
+    public static final double kS = 0.10;
     public static final double kV = 0.00040;
 
     // ===== ADVANCED MODE CONSTANTS (USE_ADAPTIVE_KV = true) =====
