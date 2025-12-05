@@ -53,6 +53,41 @@ public class ShooterCommands {
     }
 
     /**
+     * Runs the shooter at a specific velocity with feedback.
+     */
+    public static Command runShooterPID(Shooter shooter, double rpm, RobotFeedback feedback) {
+        double targetTPS = ShooterConstants.rpmToTicksPerSecond(rpm);
+        final boolean[] hasNotifiedReady = {false};
+
+        return new LambdaCommand()
+                .named("runShooterPID")
+                .requires(shooter)
+                .setStart(() -> {
+                    shooter.toVelocity(targetTPS);
+                    hasNotifiedReady[0] = false;
+                })
+                .setUpdate(() -> {
+                    shooter.toVelocity(targetTPS);
+
+                    // Trigger feedback once when RPM is reached
+                    if (shooter.atSetpoint() && !hasNotifiedReady[0]) {
+                        if (feedback != null) {
+                            feedback.onShooterAtRPM();
+                        }
+                        hasNotifiedReady[0] = true;
+                    }
+                })
+                .setStop(interrupted -> {
+                    shooter.stop();
+                    if (feedback != null) {
+                        feedback.onShooterStop();
+                    }
+                })
+                .setIsDone(() -> false)
+                .setInterruptible(true);
+    }
+
+    /**
      * Stop the shooter
      */
     public static Command stopShooter(Shooter shooter) {
