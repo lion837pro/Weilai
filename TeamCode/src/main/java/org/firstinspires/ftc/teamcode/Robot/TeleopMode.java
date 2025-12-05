@@ -1,9 +1,6 @@
 package org.firstinspires.ftc.teamcode.Robot;
-
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-
 import static dev.nextftc.bindings.Bindings.button;
-
 import org.firstinspires.ftc.teamcode.Robot.DriveCommands.DriveCommands;
 import org.firstinspires.ftc.teamcode.Robot.Hardware.REV312010;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.ChassisConstants;
@@ -21,30 +18,27 @@ import dev.nextftc.bindings.Button;
 import dev.nextftc.extensions.pedro.PedroComponent;
 import dev.nextftc.ftc.NextFTCOpMode;
 
-/**
- * SINGLE DRIVER TELEOP MODE
- * Controls: A=Intake | B=Reverse | X=1600RPM | Y=1800RPM+Spindexer | RB=AutoAim(MAIN)
- *          LB=VisionAlign | RT=ManualShooter | LT=ManualSpindexer | Options=ResetHeading
- *          DpadLeft=ResetColorTag | DpadUp=ReverseShooter | DpadDown=IndexForward
- */
-@TeleOp(name = "Single Driver Mode", group = "Competition")
+@TeleOp(name = "NextFTC Teleop")
 public class TeleopMode extends NextFTCOpMode {
 
-    // Subsystems
     private final SuperChassis chassis = SuperChassis.INSTANCE;
     private final Intake intake = Intake.INSTANCE;
     private final Shooter shooter = Shooter.INSTANCE;
     private final Spindexer spindexer = Spindexer.INSTANCE;
+
+    // LED and feedback system
     private REV312010 led;
     private RobotFeedback feedback;
 
-    // Buttons
-    private Button a, b, x, y;
-    private Button right_bumper, left_bumper;
-    private Button dpad_up, dpad_down, dpad_left;
-    private Button options;
-
-    // Constructor
+    private  Button a;
+    private  Button b;
+    private Button right_bumper;
+    private Button left_bumper;
+    private Button x;
+    private  Button options;
+    private Button y;
+    private Button dpad;
+    private Button dpad_down;
 
     public TeleopMode() {
         addComponents(new PedroComponent(ChassisConstants::buildPedroPathing));
@@ -56,16 +50,15 @@ public class TeleopMode extends NextFTCOpMode {
 
     @Override
     public void onInit() {
-        // Initialize feedback system
+        // Initialize LED (REV-31-2010) and feedback system
         try {
             led = new REV312010();
         } catch (Exception e) {
-            led = null;
+            led = null;  // LED not configured, feedback will work without it
         }
         feedback = new RobotFeedback(led);
         feedback.setGamepads(gamepad1, gamepad2);
 
-        // Initialize buttons
         this.a = button(() -> gamepad1.a);
         this.b = button(() -> gamepad1.b);
         this.x = button(() -> gamepad1.x);
@@ -73,64 +66,80 @@ public class TeleopMode extends NextFTCOpMode {
         this.right_bumper = button(() -> gamepad1.right_bumper);
         this.left_bumper = button(() -> gamepad1.left_bumper);
         this.options = button(() -> gamepad1.options);
-        this.dpad_up = button(() -> gamepad1.dpad_up);
+        this.dpad = button(() -> gamepad1.dpad_up);
         this.dpad_down = button(() -> gamepad1.dpad_down);
-        this.dpad_left = button(() -> gamepad1.dpad_left);
 
-        // System controls
+
         options.whenBecomesTrue(DriveCommands.resetHeading(chassis));
-        dpad_left.whenBecomesTrue(new dev.nextftc.core.commands.utility.InstantCommand(
-                "Reset Color Sort Tag", chassis::resetColorSortTag));
 
-        // Intake controls
+        // ===== INTAKE WITH SPINDEXER (with LED + rumble feedback) =====
+        // A button: Smart intake with spindexer auto-indexing
         a.whenBecomesTrue(IntakeCommands.runIntakeWithSpindexer(spindexer, intake, 0.6, feedback));
         a.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
         a.whenBecomesFalse(IntakeCommands.stopIntake(intake));
+
+        // B button: Reverse intake (manual, no spindexer)
         b.whenBecomesTrue(IntakeCommands.runIntake(intake, -0.6));
         b.whenBecomesFalse(IntakeCommands.stopIntake(intake));
 
-        // Shooter controls (standalone)
-        x.whenTrue(ShooterCommands.runShooterPID(shooter, 1600, feedback));
+        // ===== SHOOTER CONTROLS =====
+        // X button: Fixed RPM shooting (no spindexer integration for quick shots)
+        x.whenTrue(ShooterCommands.runShooterPID(shooter, 1600));
         x.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
-        dpad_up.whenTrue(ShooterCommands.runShooterPID(shooter, -600));
-        dpad_up.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
 
-        // Full shooting sequences (PRIMARY COMPETITION CONTROLS)
-        right_bumper.whenTrue(ShooterCommands.teleopShootColorSortedAutoAim(
-                shooter, spindexer, intake, chassis, feedback));
+        // Dpad Up: Reverse shooter (for clearing jams)
+        dpad.whenTrue(ShooterCommands.runShooterPID(shooter, -600));
+        dpad.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
+
+        // ===== FULL SHOOTING WITH SPINDEXER (with LED + rumble feedback) =====
+        // Right bumper: Color-sorted auto-aim shooting (BEST FOR COMPETITION)
+        right_bumper.whenTrue(ShooterCommands.teleopShootColorSortedAutoAim(shooter, spindexer, intake, chassis, feedback));
         right_bumper.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
         right_bumper.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
         right_bumper.whenBecomesFalse(IntakeCommands.stopIntake(intake));
 
+        // Y button: Fixed RPM shooting with spindexer (for when vision isn't available)
         y.whenBecomesTrue(ShooterCommands.teleopShootFixedRPM(shooter, spindexer, intake, 1800, feedback));
         y.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
         y.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
         y.whenBecomesFalse(IntakeCommands.stopIntake(intake));
 
-        // Vision controls
-        left_bumper.whenTrue(DriveCommands.alignWithJoysticks(chassis,
-                () -> -gamepad1.left_stick_y, () -> -gamepad1.left_stick_x));
-
-        // Spindexer manual controls
+        // ===== SPINDEXER MANUAL CONTROLS =====
+        // Dpad Down: Manual index forward (for adjustments)
         dpad_down.whenBecomesTrue(SpindexerCommands.indexForward(spindexer));
 
-        // Default commands
-        chassis.setDefaultCommand(DriveCommands.runWithJoysticks(chassis,
-                () -> -gamepad1.left_stick_y, () -> -gamepad1.left_stick_x,
-                () -> -gamepad1.right_stick_x, false));
-        shooter.setDefaultCommand(ShooterCommands.runManualShooter(shooter,
-                () -> gamepad1.right_trigger));
-        spindexer.setDefaultCommand(SpindexerCommands.manualSpin(spindexer,
-                () -> gamepad1.left_trigger));
+        // ===== DRIVE CONTROLS =====
+        chassis.setDefaultCommand(
+                DriveCommands.runWithJoysticks(chassis,
+                        () -> -gamepad1.left_stick_y,
+                        () -> -gamepad1.left_stick_x,
+                        () -> -gamepad1.right_stick_x,
+                        false));
 
+        // Left bumper: Vision alignment with joystick movement
+        left_bumper.whenTrue(
+                DriveCommands.alignWithJoysticks(chassis,
+                        () -> -gamepad1.left_stick_y,
+                        () -> -gamepad1.left_stick_x)
+        );
+
+        // ===== DEFAULT COMMANDS =====
+        shooter.setDefaultCommand(
+                ShooterCommands.runManualShooter(shooter,
+                        () -> gamepad1.right_trigger));
+
+        // Spindexer manual spin with left trigger (for testing/clearing jams)
+        spindexer.setDefaultCommand(
+                SpindexerCommands.manualSpin(spindexer,
+                        () -> gamepad1.left_trigger - gamepad2.left_trigger));
+
+        // Set LED to ready state
         feedback.setReady();
     }
 
-    // Lifecycle methods
-
     @Override
     public void onWaitForStart() {
-        // Optional: Home spindexer during init
+        // Home spindexer during init (optional - can be removed if not needed)
         // SpindexerCommands.homeSpindexer(spindexer).invoke();
     }
 
@@ -140,16 +149,18 @@ public class TeleopMode extends NextFTCOpMode {
     @Override
     public void onUpdate() {
         BindingManager.update();
-        if (feedback != null) feedback.update();
-
-        // Telemetry
-        telemetry.addData("Color Sort", chassis.getColorSortModeString());
-        telemetry.addData("Override", "DPAD LEFT");
+        // Update feedback for LED strobe effect
+        if (feedback != null) {
+            feedback.update();
+        }
     }
 
     @Override
     public void onStop() {
         BindingManager.reset();
-        if (feedback != null) feedback.setIdle();
+        // Turn off LED when stopping
+        if (feedback != null) {
+            feedback.setIdle();
+        }
     }
 }
