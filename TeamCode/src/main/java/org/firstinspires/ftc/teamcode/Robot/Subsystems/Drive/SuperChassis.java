@@ -314,6 +314,12 @@ public class SuperChassis implements Subsystem {
             double bl = rotatedForward - rotatedStrafe + turn;
             double br = rotatedForward + rotatedStrafe - turn;
 
+            // Apply TeleOp power scaling to match tuner speed
+            fl *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
+            fr *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
+            bl *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
+            br *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
+
             // Normalize while preserving direction ratios
             double maxMagnitude = Math.max(
                     Math.max(Math.abs(fl), Math.abs(fr)),
