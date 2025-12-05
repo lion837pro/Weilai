@@ -285,8 +285,8 @@ public class SuperChassis implements Subsystem {
 
             // Mecanum drive math (standard holonomic)
             double fl = forward + strafe + turn;
-            double fr = forward - strafe + turn;
-            double bl = forward - strafe - turn;
+            double fr = forward - strafe - turn;
+            double bl = forward - strafe + turn;
             double br = forward + strafe - turn;
 
             // Normalize while preserving direction ratios
