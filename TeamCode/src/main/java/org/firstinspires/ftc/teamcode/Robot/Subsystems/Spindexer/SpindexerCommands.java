@@ -395,8 +395,8 @@ public class SpindexerCommands {
                     state[0] = ShootState.MOVING_TO_SHOOTER;
                     spindexer.resetOffsetState();
 
-                    // Determine shooting order based on detected tag
-                    int tagId = chassis.getLastDetectedId();
+                    // Determine shooting order based on locked or detected tag
+                    int tagId = chassis.getColorSortTag();
                     lastTagId[0] = tagId;
                     int greenSlot = VisionConstants.getGreenSlotForTag(tagId);
 
@@ -434,28 +434,8 @@ public class SpindexerCommands {
                         return;
                     }
 
-                    // In continuous mode, check for tag changes
-                    if (continuous) {
-                        int currentTag = chassis.getLastDetectedId();
-                        if (VisionConstants.isColorSortTag(currentTag) && currentTag != lastTagId[0]) {
-                            lastTagId[0] = currentTag;
-                            // Recalculate order for new tag
-                            int greenSlot = VisionConstants.getGreenSlotForTag(currentTag);
-                            if (greenSlot != -1) {
-                                currentIndex[0] = 0;
-                                targetSlotOrder[0] = greenSlot;
-                                int idx = 1;
-                                for (int i = 0; i < 3; i++) {
-                                    if (i != greenSlot) {
-                                        targetSlotOrder[idx++] = i;
-                                    }
-                                }
-                                state[0] = ShootState.MOVING_TO_SHOOTER;
-                                spindexer.resetOffsetState();
-                                goToNextSlotInOrder(spindexer, targetSlotOrder, currentIndex);
-                            }
-                        }
-                    }
+                    // Note: Color sort order is now persistent via chassis.getColorSortTag()
+                    // Use the override button to change the locked tag
 
                     switch (state[0]) {
                         case MOVING_TO_SHOOTER:
@@ -525,6 +505,7 @@ public class SpindexerCommands {
                     ActiveOpMode.telemetry().addData("Balls", "[%s %s %s]",
                             colorChar(colors[0]), colorChar(colors[1]), colorChar(colors[2]));
                     ActiveOpMode.telemetry().addData("ShootState", state[0].toString());
+                    ActiveOpMode.telemetry().addData("Color Sort Mode", chassis.getColorSortModeString());
                 })
                 .setStop(interrupted -> {
                     intake.MoveIn(0);

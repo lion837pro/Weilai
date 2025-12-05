@@ -39,6 +39,7 @@ public class TeleopMode extends NextFTCOpMode {
     private Button y;
     private Button dpad;
     private Button dpad_down;
+    private Button dpad_left;
 
     public TeleopMode() {
         addComponents(new PedroComponent(ChassisConstants::buildPedroPathing));
@@ -68,9 +69,17 @@ public class TeleopMode extends NextFTCOpMode {
         this.options = button(() -> gamepad1.options);
         this.dpad = button(() -> gamepad1.dpad_up);
         this.dpad_down = button(() -> gamepad1.dpad_down);
+        this.dpad_left = button(() -> gamepad1.dpad_left);
 
 
         options.whenBecomesTrue(DriveCommands.resetHeading(chassis));
+
+        // ===== COLOR SORT OVERRIDE =====
+        // Dpad Left: Reset color sort tag (wait for new tag to be detected)
+        dpad_left.whenBecomesTrue(new dev.nextftc.core.commands.utility.InstantCommand(
+                "Reset Color Sort Tag",
+                chassis::resetColorSortTag
+        ));
 
         // ===== INTAKE WITH SPINDEXER (with LED + rumble feedback) =====
         // A button: Smart intake with spindexer auto-indexing
@@ -153,6 +162,11 @@ public class TeleopMode extends NextFTCOpMode {
         if (feedback != null) {
             feedback.update();
         }
+
+        // Display color sort mode
+        telemetry.addData("=== COLOR SORT ===", "");
+        telemetry.addData("Mode", chassis.getColorSortModeString());
+        telemetry.addData("Override", "Press DPAD LEFT to reset");
     }
 
     @Override

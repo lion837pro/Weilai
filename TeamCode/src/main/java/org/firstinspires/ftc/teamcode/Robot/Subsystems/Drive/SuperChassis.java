@@ -48,6 +48,10 @@ public class SuperChassis implements Subsystem {
     private final Pose robotPose = new Pose();
     private Command defaultCommand = new NullCommand();
 
+    // Color sort tag persistence
+    private int lockedColorSortTag = -1;
+    private boolean waitingForColorSortTag = false;
+
     @Override
     public void initialize() {
         HardwareMap map = ActiveOpMode.hardwareMap();
@@ -145,6 +149,13 @@ public class SuperChassis implements Subsystem {
 
                 if (this.currentFiducials != null && !this.currentFiducials.isEmpty()) {
                     this.lastDetectedId = this.currentFiducials.get(0).getFiducialId();
+
+                    // Auto-lock color sort tag on first detection or when waiting after reset
+                    if (VisionConstants.isColorSortTag(this.lastDetectedId)) {
+                        if (lockedColorSortTag == -1 || waitingForColorSortTag) {
+                            lockColorSortTag();
+                        }
+                    }
                 } else {
                     this.lastDetectedId = -1;
                 }
@@ -332,6 +343,70 @@ public class SuperChassis implements Subsystem {
             }
         } catch (Exception e) {
             dev.nextftc.ftc.ActiveOpMode.telemetry().addData("SUPERCHASSIS ERROR", e.getMessage());
+        }
+    }
+
+    // ===== COLOR SORT TAG PERSISTENCE =====
+
+    /**
+     * Get the color sort tag to use for shooting sequences.
+     * If a tag is locked, returns that tag. Otherwise returns the currently detected tag.
+     * This allows the color sort sequence to persist even when the tag is out of view.
+     */
+    public int getColorSortTag() {
+        if (lockedColorSortTag != -1) {
+            return lockedColorSortTag;
+        }
+        return getLastDetectedId();
+    }
+
+    /**
+     * Lock the currently visible color sort tag for all subsequent shooting sequences.
+     * If no color sort tag is visible, does nothing.
+     */
+    public void lockColorSortTag() {
+        int tagId = getLastDetectedId();
+        if (VisionConstants.isColorSortTag(tagId)) {
+            lockedColorSortTag = tagId;
+            waitingForColorSortTag = false;
+        }
+    }
+
+    /**
+     * Reset/override the locked color sort tag.
+     * Robot will wait until it sees another color sort tag to lock it.
+     */
+    public void resetColorSortTag() {
+        lockedColorSortTag = -1;
+        waitingForColorSortTag = true;
+    }
+
+    /**
+     * Get the currently locked color sort tag ID.
+     * Returns -1 if no tag is locked.
+     */
+    public int getLockedColorSortTag() {
+        return lockedColorSortTag;
+    }
+
+    /**
+     * Check if we're waiting for a color sort tag to lock.
+     */
+    public boolean isWaitingForColorSortTag() {
+        return waitingForColorSortTag;
+    }
+
+    /**
+     * Get a string describing the current color sort mode for telemetry.
+     */
+    public String getColorSortModeString() {
+        if (lockedColorSortTag != -1) {
+            int greenSlot = VisionConstants.getGreenSlotForTag(lockedColorSortTag);
+            return String.format("LOCKED: Tag %d (Green at slot %d)", lockedColorSortTag, greenSlot);
+        } else if (waitingForColorSortTag) {
+            return "WAITING for color sort tag...";
+        } else {
+            return "AUTO (following visible tags)";
         }
     }
 }
