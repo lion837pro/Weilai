@@ -310,9 +310,9 @@ public class SuperChassis implements Subsystem {
 
             // Mecanum drive math (standard holonomic)
             double fl = rotatedForward + rotatedStrafe + turn;
-            double fr = rotatedForward - rotatedStrafe - turn;
+            double fr = rotatedForward + rotatedStrafe - turn;
             double bl = rotatedForward - rotatedStrafe + turn;
-            double br = rotatedForward + rotatedStrafe - turn;
+            double br = rotatedForward - rotatedStrafe - turn;
 
             // FIRST: Normalize while preserving direction ratios
             double maxMagnitude = Math.max(
