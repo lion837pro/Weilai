@@ -544,4 +544,165 @@ public class SpindexerCommands {
             default: return "?";
         }
     }
+
+    // ========================================================================
+    // CUSTOM SEQUENCE SMART FEED (for 2-driver mode)
+    // ========================================================================
+
+    /**
+     * Smart feed with custom sequence programmed by operator.
+     * Shoots balls in the order specified in the sequence list.
+     * Used in 2-driver mode where spindexer operator programs shooting order.
+     *
+     * @param shooter The shooter subsystem
+     * @param spindexer The spindexer subsystem
+     * @param intake The intake subsystem
+     * @param sequence List of slot indices (0-2) in desired shooting order
+     * @param feedback Robot feedback for LED and rumble
+     */
+    public static Command smartFeedCustomSequence(Shooter shooter, Spindexer spindexer,
+                                                   Intake intake, java.util.List<Integer> sequence,
+                                                   RobotFeedback feedback) {
+        final int[] currentIndex = {0};
+        final ShootState[] state = {ShootState.MOVING_TO_SHOOTER};
+        final BallColor[] currentBallColor = {BallColor.UNKNOWN};
+
+        return new LambdaCommand()
+                .named("customSequenceFeed")
+                .requires(spindexer)
+                .requires(intake)
+                .setStart(() -> {
+                    currentIndex[0] = 0;
+                    state[0] = ShootState.MOVING_TO_SHOOTER;
+                    spindexer.resetOffsetState();
+
+                    // If sequence is empty or spindexer is empty, do nothing
+                    if (sequence.isEmpty() || spindexer.isEmpty()) {
+                        return;
+                    }
+
+                    // Move to first slot in sequence
+                    int firstSlot = sequence.get(0);
+                    if (firstSlot >= 0 && firstSlot < 3) {
+                        int shooterPos = SpindexerConstants.getShooterPosition(firstSlot);
+                        spindexer.goToPosition(shooterPos);
+
+                        // Get color for feedback
+                        currentBallColor[0] = spindexer.getBallColor(firstSlot);
+                        if (feedback != null) {
+                            feedback.onShooterSpinUp(currentBallColor[0]);
+                        }
+                    }
+                })
+                .setUpdate(() -> {
+                    // Check if sequence is empty or we're done
+                    if (sequence.isEmpty() || currentIndex[0] >= sequence.size()) {
+                        intake.MoveIn(0);
+                        if (feedback != null) feedback.onSpindexerEmpty();
+                        return;
+                    }
+
+                    switch (state[0]) {
+                        case MOVING_TO_SHOOTER:
+                            intake.MoveIn(0);
+                            if (spindexer.atPosition() && spindexer.isAtShooterPosition()) {
+                                spindexer.applyShooterOffset();
+                                state[0] = ShootState.APPLYING_OFFSET;
+                            }
+                            break;
+
+                        case APPLYING_OFFSET:
+                            intake.MoveIn(0);
+                            if (spindexer.atPosition()) {
+                                state[0] = ShootState.WAITING_FOR_SPINUP;
+                            }
+                            break;
+
+                        case WAITING_FOR_SPINUP:
+                            intake.MoveIn(0);
+                            if (shooter.atSetpoint()) {
+                                spindexer.removeShooterOffset();
+                                state[0] = ShootState.REMOVING_OFFSET;
+                            }
+                            break;
+
+                        case REMOVING_OFFSET:
+                            intake.MoveIn(0);
+                            if (spindexer.atPosition()) {
+                                state[0] = ShootState.FEEDING;
+                            }
+                            break;
+
+                        case FEEDING:
+                            intake.MoveIn(1.0);
+
+                            if (feedback != null) {
+                                feedback.onBallShot(currentBallColor[0]);
+                            }
+
+                            spindexer.markCurrentSlotEmpty();
+                            currentIndex[0]++;
+                            state[0] = ShootState.NEXT_BALL;
+                            break;
+
+                        case NEXT_BALL:
+                            intake.MoveIn(0);
+                            // Check if there are more balls in sequence
+                            if (currentIndex[0] < sequence.size()) {
+                                int nextSlot = sequence.get(currentIndex[0]);
+                                if (nextSlot >= 0 && nextSlot < 3 && spindexer.hasBall(nextSlot)) {
+                                    // Move to next slot
+                                    int shooterPos = SpindexerConstants.getShooterPosition(nextSlot);
+                                    spindexer.goToPosition(shooterPos);
+                                    state[0] = ShootState.MOVING_TO_SHOOTER;
+
+                                    // Update ball color for feedback
+                                    currentBallColor[0] = spindexer.getBallColor(nextSlot);
+                                    if (feedback != null) {
+                                        feedback.onShooterSpinUp(currentBallColor[0]);
+                                    }
+                                } else {
+                                    // Slot empty or invalid, skip to next
+                                    currentIndex[0]++;
+                                }
+                            }
+                            break;
+                    }
+
+                    // Telemetry
+                    BallColor[] colors = spindexer.getAllBallColors();
+                    ActiveOpMode.telemetry().addData("Balls", "[%s %s %s]",
+                            colorChar(colors[0]), colorChar(colors[1]), colorChar(colors[2]));
+                    ActiveOpMode.telemetry().addData("ShootState", state[0].toString());
+                    ActiveOpMode.telemetry().addData("Custom Sequence", formatSequence(sequence));
+                    ActiveOpMode.telemetry().addData("Current Shot", "%d / %d",
+                            currentIndex[0] + 1, sequence.size());
+                })
+                .setStop(interrupted -> {
+                    intake.MoveIn(0);
+                    spindexer.stop();
+                    spindexer.resetOffsetState();
+                    if (feedback != null) feedback.onShooterStop();
+                })
+                .setIsDone(() -> currentIndex[0] >= sequence.size())
+                .setInterruptible(true);
+    }
+
+    /**
+     * Format sequence for telemetry display
+     */
+    private static String formatSequence(java.util.List<Integer> sequence) {
+        if (sequence.isEmpty()) {
+            return "[Empty]";
+        }
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < sequence.size(); i++) {
+            sb.append(sequence.get(i));
+            if (i < sequence.size() - 1) {
+                sb.append(" → ");
+            }
+        }
+        sb.append("]");
+        return sb.toString();
+    }
 }
