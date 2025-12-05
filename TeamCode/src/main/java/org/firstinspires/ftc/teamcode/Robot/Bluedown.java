@@ -184,6 +184,8 @@ public class Bluedown extends NextFTCOpMode {
                 // ===== PHASE 1: Score Preload & Intake Down Balls =====
                 // Navigate to high chamber
                 new FollowPath(STbluealldown),
+                ShooterCommands.shootAllBallsFixedRPM(shooter, spindexer, intake, 1600, feedback),
+                new Delay(0.3),
 
                 // Position in front of down balls
                 new FollowPath(infrontofdownballs),
