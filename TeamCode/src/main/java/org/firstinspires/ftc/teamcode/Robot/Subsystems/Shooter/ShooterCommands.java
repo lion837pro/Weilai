@@ -309,4 +309,22 @@ public class ShooterCommands {
                 SpindexerCommands.smartFeedColorSortedContinuous(shooter, spindexer, intake, chassis, feedback)
         );
     }
+
+    // ========================================================================
+    // CUSTOM SEQUENCE SHOOTING (for 2-driver mode)
+    // ========================================================================
+
+    /**
+     * Shoot balls in a custom sequence defined by the operator.
+     * Used in 2-driver mode where spindexer operator programs the shooting order.
+     */
+    public static Command teleopShootCustomSequence(Shooter shooter, Spindexer spindexer,
+                                                     Intake intake, double rpm,
+                                                     java.util.List<Integer> sequence,
+                                                     RobotFeedback feedback) {
+        return new ParallelGroup(
+                runShooterPID(shooter, rpm, feedback),
+                SpindexerCommands.smartFeedCustomSequence(shooter, spindexer, intake, sequence, feedback)
+        );
+    }
 }
