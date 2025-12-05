@@ -90,7 +90,7 @@ public class SpindexerConstants {
     public static final double kV = 0.0;   // Velocity feedforward (not needed for position control)
 
     // ===== MOTION CONSTRAINTS =====
-    public static final double MAX_POWER = 0.8;           // Maximum motor power
+    public static final double MAX_POWER = 1.0;           // Maximum motor power - increased for faster indexing
     public static final double HOMING_POWER = 0.3;        // Slow power for homing routine
     public static final double POSITION_TOLERANCE = 5.0;  // Ticks tolerance for "at position"
     public static final double VELOCITY_TOLERANCE = 10.0; // Ticks/sec tolerance for "stopped"
@@ -105,7 +105,7 @@ public class SpindexerConstants {
     // ===== TIMING =====
     public static final double HOMING_TIMEOUT_MS = 3000;     // Max time to search for home
     public static final double INDEX_TIMEOUT_MS = 1000;      // Max time to move to position
-    public static final double SETTLE_TIME_MS = 50;          // Time to wait after reaching position
+    public static final double SETTLE_TIME_MS = 30;          // Time to wait after reaching position - reduced for faster indexing
     public static final double BALL_DETECT_DEBOUNCE_MS = 50; // Debounce for color sensor readings
 
     // ===== COLOR SENSOR THRESHOLDS =====
