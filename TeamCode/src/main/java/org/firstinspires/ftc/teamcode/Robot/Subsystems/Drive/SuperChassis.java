@@ -308,11 +308,15 @@ public class SuperChassis implements Subsystem {
                 rotatedStrafe = forward * sinH + strafe * cosH;
             }
 
-            // Mecanum drive math (standard holonomic)
+            // Mecanum drive math (X-configuration standard)
+            // FL: forward + strafe + turn
+            // FR: forward - strafe - turn
+            // BL: forward + strafe - turn  (strafe same as FL, turn opposite)
+            // BR: forward - strafe + turn  (strafe same as FR, turn opposite)
             double fl = rotatedForward + rotatedStrafe + turn;
             double fr = rotatedForward - rotatedStrafe - turn;
-            double bl = rotatedForward - rotatedStrafe + turn;
-            double br = rotatedForward + rotatedStrafe - turn;
+            double bl = rotatedForward + rotatedStrafe - turn;
+            double br = rotatedForward - rotatedStrafe + turn;
 
             // Normalize while preserving direction ratios
             double maxMagnitude = Math.max(
