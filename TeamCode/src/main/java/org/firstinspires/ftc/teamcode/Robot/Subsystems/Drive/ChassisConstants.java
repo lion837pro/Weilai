@@ -31,6 +31,8 @@ public class ChassisConstants {
     public static final double TELEOP_DRIVE_POWER_SCALE = 1.3;
 
 
+    // GoBilda Strafer V5 Standard Motor Configuration
+    // FL: REVERSE, FR: FORWARD, BL: REVERSE, BR: FORWARD
     public static final MecanumConstants driveConstants = new MecanumConstants()
             .maxPower(1)
             .rightFrontMotorName(frName)
@@ -39,7 +41,7 @@ public class ChassisConstants {
             .leftFrontMotorName(flName)
             .leftFrontMotorDirection(DcMotorSimple.Direction.REVERSE)
             .leftRearMotorDirection(DcMotorSimple.Direction.REVERSE)
-            .rightFrontMotorDirection(DcMotorSimple.Direction.REVERSE)
+            .rightFrontMotorDirection(DcMotorSimple.Direction.FORWARD)
             .rightRearMotorDirection(DcMotorSimple.Direction.FORWARD)
             .xVelocity(65.19982574)
             .yVelocity(50.48943727);
