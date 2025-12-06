@@ -60,7 +60,7 @@ public class ChassisConstants {
      These are the PathConstraints in order:
      tValueConstraint, velocityConstraint, translationalConstraint, headingConstraint, timeoutConstraint,
      brakingStrength, BEZIER_CURVE_SEARCH_LIMIT, brakingStart
-     The BEZIER_CURVE_SEARCH_LIMIT should typically be left at 10 and shouldn't be changed.
+     The BEZIER_CURVE_SEARCH_LIMIT should typically be left at 10 and srhouldn't be changed.
 
      velocityConstraint: Velocity tolerance (inches/sec) - PID engages when velocity error exceeds this
      translationalConstraint: Position tolerance (inches) - PID engages when position error exceeds this

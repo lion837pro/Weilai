@@ -119,8 +119,8 @@ public class TeleopMode extends NextFTCOpMode {
         // Strafe: X (gamepad X-axis is normal)
         // Turn: X (gamepad X-axis is normal)
         chassis.setDefaultCommand(DriveCommands.runWithJoysticks(chassis,
-                () -> -gamepad1.left_stick_y, () -> gamepad1.left_stick_x,
-                () -> gamepad1.right_stick_x, true));
+                () -> -gamepad1.left_stick_y, () -> -gamepad1.left_stick_x,
+                () -> -gamepad1.right_stick_x, false));
         shooter.setDefaultCommand(ShooterCommands.runManualShooter(shooter,
                 () -> gamepad1.right_trigger));
         spindexer.setDefaultCommand(SpindexerCommands.manualSpin(spindexer,

@@ -32,7 +32,7 @@ public class SpindexerConstants {
     // Polarity: true = active-low (triggered when LOW), false = active-high (triggered when HIGH)
     // Most REV magnetic limit switches are active-low, but check your specific sensor
     // Changed to active-high based on testing - sensor shows HIGH when open, needs HIGH for trigger
-    public static final boolean LIMIT_SWITCH_ACTIVE_LOW = false;
+    public static final boolean LIMIT_SWITCH_ACTIVE_LOW = true;
 
     // ===== MOTOR CONFIGURATION =====
     public static final boolean MOTOR_INVERTED = false;
@@ -120,7 +120,7 @@ public class SpindexerConstants {
     public static final float COLOR_SENSOR_GAIN = 2.0f;
 
     // Proximity threshold for ball detection (MM)
-    public static final double COLOR_PROXIMITY_THRESHOLD = 150;  // Ball present if < this distance
+    public static final double COLOR_PROXIMITY_THRESHOLD = 45;  // Ball present if < this distance
 
     // ===== BALL COLOR DETECTION THRESHOLDS =====
     // These values need tuning based on your specific color sensor and ball colors
