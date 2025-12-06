@@ -411,7 +411,22 @@ public class Spindexer implements Subsystem {
      */
     public boolean isAtHome() {
         if (limitSwitch == null) return false;
-        return !limitSwitch.getState();  // Usually active-low
+
+        boolean state = limitSwitch.getState();
+        // Apply polarity from constants
+        if (SpindexerConstants.LIMIT_SWITCH_ACTIVE_LOW) {
+            return !state;  // Active-low: triggered when state is LOW (false)
+        } else {
+            return state;   // Active-high: triggered when state is HIGH (true)
+        }
+    }
+
+    /**
+     * Get raw limit switch state for debugging (true = HIGH, false = LOW)
+     */
+    public boolean getLimitSwitchRawState() {
+        if (limitSwitch == null) return false;
+        return limitSwitch.getState();
     }
 
     /**
@@ -685,7 +700,15 @@ public class Spindexer implements Subsystem {
             ActiveOpMode.telemetry().addData("Target Position", targetPosition);
             ActiveOpMode.telemetry().addData("Encoder Ticks", "%.1f", getCurrentTicks());
             ActiveOpMode.telemetry().addData("At Position", atPosition() ? "YES" : "NO");
-            ActiveOpMode.telemetry().addData("Limit Switch", isAtHome() ? "TRIGGERED" : "Open");
+
+            // Limit switch debugging - show both raw state and interpreted value
+            if (limitSwitch != null) {
+                boolean rawState = limitSwitch.getState();
+                ActiveOpMode.telemetry().addData("Limit Switch Raw", rawState ? "HIGH" : "LOW");
+                ActiveOpMode.telemetry().addData("Limit Switch", isAtHome() ? "TRIGGERED" : "Open");
+            } else {
+                ActiveOpMode.telemetry().addData("Limit Switch", "NOT FOUND");
+            }
 
             // Ball status with colors
             String slot0 = ballsLoaded[0] ? colorToSymbol(ballColors[0]) : "○";

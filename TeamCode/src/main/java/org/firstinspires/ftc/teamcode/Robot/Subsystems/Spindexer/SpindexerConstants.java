@@ -28,6 +28,11 @@ public class SpindexerConstants {
     public static final String COLOR_SENSOR_1_NAME = "colorS1";  // Detects ball at intake
     public static final String COLOR_SENSOR_2_NAME = "colorS2";  // Secondary sensor (optional)
 
+    // ===== LIMIT SWITCH CONFIGURATION =====
+    // Polarity: true = active-low (triggered when LOW), false = active-high (triggered when HIGH)
+    // Most REV magnetic limit switches are active-low, but check your specific sensor
+    public static final boolean LIMIT_SWITCH_ACTIVE_LOW = true;
+
     // ===== MOTOR CONFIGURATION =====
     public static final boolean MOTOR_INVERTED = false;
     public static final double TICKS_PER_REV = 28.0;  // GoBilda Yellow Jacket encoder ticks per motor revolution
