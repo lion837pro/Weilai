@@ -292,57 +292,21 @@ public class SuperChassis implements Subsystem {
      */
     public void driveHolonomic(double forward, double strafe, double turn, boolean robotCentric) {
         try {
-            if (follower() == null || follower().getDrivetrain() == null) return;
+            if (follower() == null) return;
 
-            // Get drivetrain
-            com.pedropathing.Drivetrain drivetrain = follower().getDrivetrain();
+            // Scale inputs to match tuner speed/feel
+            forward *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
+            strafe *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
+            turn *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
 
-            // Field-oriented control: rotate inputs by robot heading
-            double rotatedForward = forward;
-            double rotatedStrafe = strafe;
-
-            if (!robotCentric) {
-                double heading = getAngle().inRad;
-                double cosH = Math.cos(-heading);
-                double sinH = Math.sin(-heading);
-
-                rotatedForward = forward * cosH - strafe * sinH;
-                rotatedStrafe = forward * sinH + strafe * cosH;
-            }
-
-            // Mecanum drive math - all three axes combined
-            double fl = rotatedForward + rotatedStrafe + turn;
-            double fr = rotatedForward - rotatedStrafe - turn;
-            double bl = rotatedForward - rotatedStrafe + turn;
-            double br = rotatedForward + rotatedStrafe - turn;
-
-            // Normalize to preserve direction ratios
-            double maxMagnitude = Math.max(
-                    Math.max(Math.abs(fl), Math.abs(fr)),
-                    Math.max(Math.abs(bl), Math.abs(br))
-            );
-
-            if (maxMagnitude > 1.0) {
-                fl /= maxMagnitude;
-                fr /= maxMagnitude;
-                bl /= maxMagnitude;
-                br /= maxMagnitude;
-            }
-
-            // Apply power scaling
-            fl *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
-            fr *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
-            bl *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
-            br *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
-
-            // Motor order: [FL, BL, FR, BR]
-            double[] powers = {fl, bl, fr, br};
-            drivetrain.runDrive(powers);
+            // Use Pedro's setTeleOpDrive for smooth control with built-in acceleration limiting
+            // This provides the same smooth feel as the tuner
+            // Params: forward (Y), strafe (X), turn, fieldCentric (opposite of robotCentric)
+            follower().setTeleOpDrive(forward, strafe, turn, !robotCentric);
 
         } catch (Exception e) {
             ActiveOpMode.telemetry().addData("Holonomic Drive Error", e.getMessage());
         }
-
     }
     public void stop() {
 

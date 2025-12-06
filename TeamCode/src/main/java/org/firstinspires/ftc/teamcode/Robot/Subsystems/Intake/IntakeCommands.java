@@ -102,9 +102,11 @@ public class IntakeCommands {
                         return;
                     }
 
-                    if (spindexer.atPosition() && spindexer.isAtIntakePosition()) {
-                        intake.MoveIn(intakeSpeed);
+                    // Keep intake running continuously while button is held
+                    intake.MoveIn(intakeSpeed);
 
+                    // Check for ball detection when at intake position
+                    if (spindexer.atPosition() && spindexer.isAtIntakePosition()) {
                         int currentSlot = spindexer.getCurrentPosition() / 2;
                         if (spindexer.hasBall(currentSlot)) {
                             // Ball was just detected - provide feedback
@@ -115,10 +117,9 @@ public class IntakeCommands {
                                 }
                                 previousBallCount[0] = currentBallCount;
                             }
+                            // Automatically move spindexer to next position after ball detected
                             spindexer.goToNextIntakePosition();
                         }
-                    } else {
-                        intake.MoveIn(0);
                     }
                 })
                 .setStop(interrupted -> {
