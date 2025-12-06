@@ -31,7 +31,8 @@ public class SpindexerConstants {
     // ===== LIMIT SWITCH CONFIGURATION =====
     // Polarity: true = active-low (triggered when LOW), false = active-high (triggered when HIGH)
     // Most REV magnetic limit switches are active-low, but check your specific sensor
-    public static final boolean LIMIT_SWITCH_ACTIVE_LOW = true;
+    // Changed to active-high based on testing - sensor shows HIGH when open, needs HIGH for trigger
+    public static final boolean LIMIT_SWITCH_ACTIVE_LOW = false;
 
     // ===== MOTOR CONFIGURATION =====
     public static final boolean MOTOR_INVERTED = false;
