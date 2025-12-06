@@ -39,6 +39,22 @@ public class IntakeCommands {
                 .setInterruptible(true);
     }
 
+    /**
+     * Stop both intake and spindexer (properly interrupts runIntakeWithSpindexer)
+     */
+    public static Command stopIntakeWithSpindexer(Spindexer spindexer, Intake intake) {
+        return new LambdaCommand()
+                .named("stopIntakeWithSpindexer")
+                .requires(spindexer)
+                .requires(intake)
+                .setStart(() -> {
+                    intake.MoveIn(0);
+                    spindexer.stop();
+                })
+                .setIsDone(() -> true)
+                .setInterruptible(true);
+    }
+
     // ========================================================================
     // INTAKE SEQUENCES WITH SPINDEXER
     // ========================================================================
@@ -102,8 +118,13 @@ public class IntakeCommands {
                         return;
                     }
 
+                    // Keep intake running continuously while button is held
+                    intake.MoveIn(intakeSpeed);
+
+                    // Check for ball detection when at intake position
                     if (spindexer.atPosition() && spindexer.isAtIntakePosition()) {
-                        intake.MoveIn(intakeSpeed);
+                        // Force check for ball at current position
+                        spindexer.forceCheckBall();
 
                         int currentSlot = spindexer.getCurrentPosition() / 2;
                         if (spindexer.hasBall(currentSlot)) {
@@ -115,10 +136,9 @@ public class IntakeCommands {
                                 }
                                 previousBallCount[0] = currentBallCount;
                             }
+                            // Automatically move spindexer to next position after ball detected
                             spindexer.goToNextIntakePosition();
                         }
-                    } else {
-                        intake.MoveIn(0);
                     }
                 })
                 .setStop(interrupted -> {

@@ -450,8 +450,8 @@ public class Spindexer implements Subsystem {
     private void updateBallDetection() {
         if (colorSensor1 == null) return;
 
-        // Only detect at intake position
-        if (!isAtIntakePosition()) return;
+        // Only detect at intake position and when at target position
+        if (!isAtIntakePosition() || !atPosition()) return;
 
         int slot = currentPosition / 2;  // 0->0, 2->1, 4->2
 
@@ -481,6 +481,39 @@ public class Spindexer implements Subsystem {
             ballsLoaded[slot] = true;
             ballColors[slot] = detectedColor;
         }
+    }
+
+    /**
+     * Force check for ball at current slot (for manual detection)
+     * Returns true if ball was detected and added
+     */
+    public boolean forceCheckBall() {
+        if (colorSensor1 == null || !isAtIntakePosition()) return false;
+
+        int slot = currentPosition / 2;
+        if (ballsLoaded[slot]) return false; // Already has ball
+
+        double distance = colorSensor1.getDistance(DistanceUnit.MM);
+        boolean ballDetected = distance < SpindexerConstants.COLOR_PROXIMITY_THRESHOLD;
+
+        if (ballDetected) {
+            NormalizedRGBA colors = colorSensor1.getNormalizedColors();
+            int red = (int)(colors.red * 255);
+            int green = (int)(colors.green * 255);
+            int blue = (int)(colors.blue * 255);
+
+            lastDetectedRed = red;
+            lastDetectedGreen = green;
+            lastDetectedBlue = blue;
+
+            BallColor detectedColor = SpindexerConstants.detectBallColor(red, green, blue);
+            lastDetectedColor = detectedColor;
+
+            ballsLoaded[slot] = true;
+            ballColors[slot] = detectedColor;
+            return true;
+        }
+        return false;
     }
 
     /**

@@ -83,11 +83,8 @@ public class TeleopMode extends NextFTCOpMode {
                 "Reset Color Sort Tag", chassis::resetColorSortTag));
 
         // Intake controls
-        a.whenBecomesTrue(IntakeCommands.runIntakeWithSpindexer(spindexer, intake, 0.7, feedback));
-        a.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
-        a.whenBecomesFalse(IntakeCommands.stopIntake(intake));
-        b.whenBecomesTrue(IntakeCommands.runIntake(intake, -0.7));
-        b.whenBecomesFalse(IntakeCommands.stopIntake(intake));
+        a.whenTrue(IntakeCommands.runIntakeWithSpindexer(spindexer, intake, 0.7, feedback));
+        b.whenTrue(IntakeCommands.runIntake(intake, -0.7));
 
         // Shooter controls (standalone)
         x.whenTrue(ShooterCommands.runShooterPID(shooter, 1600, feedback));
@@ -98,14 +95,8 @@ public class TeleopMode extends NextFTCOpMode {
         // Full shooting sequences (PRIMARY COMPETITION CONTROLS)
         right_bumper.whenTrue(ShooterCommands.teleopShootColorSortedAutoAim(
                 shooter, spindexer, intake, chassis, feedback));
-        right_bumper.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
-        right_bumper.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
-        right_bumper.whenBecomesFalse(IntakeCommands.stopIntake(intake));
 
-        y.whenBecomesTrue(ShooterCommands.teleopShootFixedRPM(shooter, spindexer, intake, 1600, feedback));
-        y.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
-        y.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
-        y.whenBecomesFalse(IntakeCommands.stopIntake(intake));
+        y.whenTrue(ShooterCommands.teleopShootFixedRPM(shooter, spindexer, intake, 1600, feedback));
 
         // Vision controls
         left_bumper.whenTrue(DriveCommands.alignWithJoysticks(chassis,
@@ -119,8 +110,8 @@ public class TeleopMode extends NextFTCOpMode {
         // Strafe: X (gamepad X-axis is normal)
         // Turn: X (gamepad X-axis is normal)
         chassis.setDefaultCommand(DriveCommands.runWithJoysticks(chassis,
-                () -> -gamepad1.left_stick_y, () -> -gamepad1.left_stick_x,
-                () -> -gamepad1.right_stick_x, false));
+                () -> -gamepad1.left_stick_y, () -> gamepad1.left_stick_x,
+                () -> gamepad1.right_stick_x, false));
         shooter.setDefaultCommand(ShooterCommands.runManualShooter(shooter,
                 () -> gamepad1.right_trigger));
         spindexer.setDefaultCommand(SpindexerCommands.manualSpin(spindexer,
@@ -133,8 +124,52 @@ public class TeleopMode extends NextFTCOpMode {
 
     @Override
     public void onWaitForStart() {
-        // Optional: Home spindexer during init
-        SpindexerCommands.homeSpindexer(spindexer).invoke();
+        // Auto-home spindexer during init (run directly, not as command)
+        telemetry.addData("Spindexer", "Starting homing...");
+        telemetry.addData("Limit Switch", "Raw state: " + spindexer.getLimitSwitchRawState());
+        telemetry.update();
+
+        spindexer.startHoming();
+
+        // Wait for limit switch to trigger (with timeout)
+        long startTime = System.currentTimeMillis();
+        long timeout = 5000; // 5 second timeout
+        int iterations = 0;
+
+        while (!spindexer.isAtHome() && (System.currentTimeMillis() - startTime) < timeout) {
+            iterations++;
+            // Update telemetry every 100ms
+            if (iterations % 10 == 0) {
+                long elapsed = System.currentTimeMillis() - startTime;
+                telemetry.addData("Homing", "Time: %dms", elapsed);
+                telemetry.addData("Limit Raw", spindexer.getLimitSwitchRawState() ? "HIGH" : "LOW");
+                telemetry.addData("At Home", spindexer.isAtHome() ? "YES" : "NO");
+                telemetry.update();
+            }
+
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                break;
+            }
+        }
+
+        if (spindexer.isAtHome()) {
+            spindexer.finishHoming();
+            telemetry.addData("Spindexer", "✓ Homed successfully");
+        } else {
+            spindexer.stop();
+            telemetry.addData("Spindexer", "✗ Homing timeout");
+            telemetry.addData("Check", "Limit switch connection");
+        }
+        telemetry.update();
+
+        // Give user time to see result
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            // Ignore
+        }
     }
 
     @Override

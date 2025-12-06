@@ -148,9 +148,9 @@ public class DriveCommands {
     }
 
     /**
-     * TeleOp auto-alignment with joystick movement.
+     * TeleOp auto-alignment with joystick movement using Pedro's heading PID.
      * ONLY aligns to tags 20 and 24 (alignment tags).
-     * If no alignment tag visible, allows normal joystick control without auto-turn.
+     * Runs while button is held, stops when released.
      */
     public static Command alignWithJoysticks(SuperChassis chassis, DoubleSupplier forward, DoubleSupplier strafe) {
         return new LambdaCommand()
@@ -160,31 +160,39 @@ public class DriveCommands {
                     follower().startTeleOpDrive();
                 })
                 .setUpdate(() -> {
-                    double turnPower = 0;
+                    // Get joystick inputs
+                    double fw = forward.getAsDouble();
+                    double st = strafe.getAsDouble();
+
+                    // Apply deadband
+                    if (Math.abs(fw) < 0.05) fw = 0;
+                    if (Math.abs(st) < 0.05) st = 0;
 
                     if (chassis.isLLConnected() && chassis.getLIMELIGHT().getLatestResult().isValid()) {
                         // Check if we see an alignment tag (ID 20 or 24)
                         int detectedId = chassis.getLastDetectedId();
 
                         if (VisionConstants.isAlignmentTag(detectedId)) {
-                            // Valid alignment tag - do auto-align
+                            // Valid alignment tag - use Pedro's heading control
                             double tx = chassis.getLLTx();
-                            turnPower = -tx * 0.025;
+                            double currentHeading = chassis.getAngle().inRad;
+                            double targetHeading = currentHeading - Math.toRadians(tx);
 
-                            if (Math.abs(tx) > 1.0 && Math.abs(turnPower) < 0.12) {
-                                turnPower = Math.copySign(0.12, turnPower);
-                            }
+                            // Use Pedro's turnTo for smooth heading control
+                            follower().setTeleOpDrive(fw, st, 0, false);
+                            follower().turnTo(targetHeading);
 
-                            ActiveOpMode.telemetry().addData("AutoAlign", "Tag %d | Err: %.2f", detectedId, tx);
+                            ActiveOpMode.telemetry().addData("AutoAlign", "Tag %d | Err: %.2f°", detectedId, tx);
                         } else {
-                            // Not an alignment tag - show info but don't auto-turn
+                            // Not an alignment tag - normal drive
+                            follower().setTeleOpDrive(fw, st, 0, false);
                             ActiveOpMode.telemetry().addData("AutoAlign", "Tag %d (not alignment)", detectedId);
                         }
                     } else {
+                        // No target - normal drive
+                        follower().setTeleOpDrive(fw, st, 0, false);
                         ActiveOpMode.telemetry().addData("AutoAlign", "NO TARGET");
                     }
-
-                    follower().setTeleOpDrive(forward.getAsDouble(), strafe.getAsDouble(), turnPower, false);
                 })
                 .setStop(interrupted -> chassis.stop())
                 .setIsDone(() -> false)
