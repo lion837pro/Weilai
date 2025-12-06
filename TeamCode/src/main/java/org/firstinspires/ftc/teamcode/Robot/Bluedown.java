@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.Robot;
 
+import com.pedropathing.geometry.BezierCurve;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.paths.PathChain;
@@ -106,8 +107,12 @@ public class Bluedown extends NextFTCOpMode {
         shoot1point = follower()
                 .pathBuilder()
                 .addPath(
-                        new BezierLine(new Pose(11.258, 36.294), new Pose(66.539, 88.551))
-                )
+                        new BezierCurve(
+                                new Pose(11.258, 36.294),
+                                new Pose(48.392, 40.999),
+                                new Pose(66.539, 88.551)
+
+                        ))
                 .setLinearHeadingInterpolation(Math.toRadians(180), Math.toRadians(135))
                 .build();
 
@@ -184,7 +189,7 @@ public class Bluedown extends NextFTCOpMode {
                 // ===== PHASE 1: Score Preload & Intake Down Balls =====
                 // Navigate to high chamber
                 new FollowPath(STbluealldown),
-                ShooterCommands.shootAllBallsFixedRPM(shooter, spindexer, intake, 1600, feedback),
+                ShooterCommands.shootAllBallsFixedRPM(shooter, spindexer, intake, 3200, feedback),
                 new Delay(0.3),
 
                 // Position in front of down balls

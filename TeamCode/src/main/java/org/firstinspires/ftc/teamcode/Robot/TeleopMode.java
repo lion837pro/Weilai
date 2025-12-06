@@ -83,10 +83,10 @@ public class TeleopMode extends NextFTCOpMode {
                 "Reset Color Sort Tag", chassis::resetColorSortTag));
 
         // Intake controls
-        a.whenBecomesTrue(IntakeCommands.runIntakeWithSpindexer(spindexer, intake, 0.6, feedback));
+        a.whenBecomesTrue(IntakeCommands.runIntakeWithSpindexer(spindexer, intake, 0.7, feedback));
         a.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
         a.whenBecomesFalse(IntakeCommands.stopIntake(intake));
-        b.whenBecomesTrue(IntakeCommands.runIntake(intake, -0.6));
+        b.whenBecomesTrue(IntakeCommands.runIntake(intake, -0.7));
         b.whenBecomesFalse(IntakeCommands.stopIntake(intake));
 
         // Shooter controls (standalone)
@@ -102,7 +102,7 @@ public class TeleopMode extends NextFTCOpMode {
         right_bumper.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
         right_bumper.whenBecomesFalse(IntakeCommands.stopIntake(intake));
 
-        y.whenBecomesTrue(ShooterCommands.teleopShootFixedRPM(shooter, spindexer, intake, 1800, feedback));
+        y.whenBecomesTrue(ShooterCommands.teleopShootFixedRPM(shooter, spindexer, intake, 1600, feedback));
         y.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
         y.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
         y.whenBecomesFalse(IntakeCommands.stopIntake(intake));
@@ -120,7 +120,7 @@ public class TeleopMode extends NextFTCOpMode {
         // Turn: X (gamepad X-axis is normal)
         chassis.setDefaultCommand(DriveCommands.runWithJoysticks(chassis,
                 () -> -gamepad1.left_stick_y, () -> gamepad1.left_stick_x,
-                () -> gamepad1.right_stick_x, false));
+                () -> gamepad1.right_stick_x, true));
         shooter.setDefaultCommand(ShooterCommands.runManualShooter(shooter,
                 () -> gamepad1.right_trigger));
         spindexer.setDefaultCommand(SpindexerCommands.manualSpin(spindexer,
@@ -134,7 +134,7 @@ public class TeleopMode extends NextFTCOpMode {
     @Override
     public void onWaitForStart() {
         // Optional: Home spindexer during init
-        // SpindexerCommands.homeSpindexer(spindexer).invoke();
+        SpindexerCommands.homeSpindexer(spindexer).invoke();
     }
 
     @Override

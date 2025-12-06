@@ -22,7 +22,7 @@ public class IntakeCommands {
                 .setStart(() -> {})
                 .setUpdate(() -> intake.MoveIn(speed))
                 .setStop(interrupted -> intake.MoveIn(0))
-                .setIsDone(() -> false)
+                .setIsDone(() -> true)
                 .setInterruptible(true);
     }
 
