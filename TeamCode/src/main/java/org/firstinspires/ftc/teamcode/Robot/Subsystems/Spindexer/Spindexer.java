@@ -5,6 +5,7 @@ import androidx.annotation.NonNull;
 import com.qualcomm.robotcore.hardware.ColorRangeSensor;
 import com.qualcomm.robotcore.hardware.DigitalChannel;
 import com.qualcomm.robotcore.hardware.NormalizedRGBA;
+import com.qualcomm.robotcore.hardware.SwitchableLight;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import dev.nextftc.core.commands.Command;
@@ -102,6 +103,12 @@ public class Spindexer implements Subsystem {
         try {
             this.colorSensor1 = ActiveOpMode.hardwareMap()
                     .get(ColorRangeSensor.class, SpindexerConstants.COLOR_SENSOR_1_NAME);
+
+            // Configure sensor 1: enable light and set gain
+            if (this.colorSensor1 instanceof SwitchableLight) {
+                ((SwitchableLight) this.colorSensor1).enableLight(true);
+            }
+            this.colorSensor1.setGain(SpindexerConstants.COLOR_SENSOR_GAIN);
         } catch (Exception e) {
             this.colorSensor1 = null;
         }
@@ -109,6 +116,12 @@ public class Spindexer implements Subsystem {
         try {
             this.colorSensor2 = ActiveOpMode.hardwareMap()
                     .get(ColorRangeSensor.class, SpindexerConstants.COLOR_SENSOR_2_NAME);
+
+            // Configure sensor 2: enable light and set gain
+            if (this.colorSensor2 instanceof SwitchableLight) {
+                ((SwitchableLight) this.colorSensor2).enableLight(true);
+            }
+            this.colorSensor2.setGain(SpindexerConstants.COLOR_SENSOR_GAIN);
         } catch (Exception e) {
             this.colorSensor2 = null;
         }
@@ -691,6 +704,33 @@ public class Spindexer implements Subsystem {
             ActiveOpMode.telemetry().addData("Last Color", "%s (R:%d G:%d B:%d)",
                     lastDetectedColor.toString(),
                     lastDetectedRed, lastDetectedGreen, lastDetectedBlue);
+
+            // Real-time sensor readings for debugging
+            if (colorSensor1 != null) {
+                try {
+                    NormalizedRGBA live1 = colorSensor1.getNormalizedColors();
+                    double dist1 = colorSensor1.getDistance(DistanceUnit.MM);
+                    ActiveOpMode.telemetry().addData("Sensor 1", "R:%.2f G:%.2f B:%.2f Dist:%.1fmm",
+                            live1.red, live1.green, live1.blue, dist1);
+                } catch (Exception e) {
+                    ActiveOpMode.telemetry().addData("Sensor 1", "ERROR: %s", e.getMessage());
+                }
+            } else {
+                ActiveOpMode.telemetry().addData("Sensor 1", "NOT FOUND");
+            }
+
+            if (colorSensor2 != null) {
+                try {
+                    NormalizedRGBA live2 = colorSensor2.getNormalizedColors();
+                    double dist2 = colorSensor2.getDistance(DistanceUnit.MM);
+                    ActiveOpMode.telemetry().addData("Sensor 2", "R:%.2f G:%.2f B:%.2f Dist:%.1fmm",
+                            live2.red, live2.green, live2.blue, dist2);
+                } catch (Exception e) {
+                    ActiveOpMode.telemetry().addData("Sensor 2", "ERROR: %s", e.getMessage());
+                }
+            } else {
+                ActiveOpMode.telemetry().addData("Sensor 2", "NOT FOUND");
+            }
 
         } catch (Exception e) {
             // Failsafe if telemetry isn't ready
