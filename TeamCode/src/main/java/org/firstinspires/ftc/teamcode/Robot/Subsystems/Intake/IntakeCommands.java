@@ -35,7 +35,7 @@ public class IntakeCommands {
                 .requires(intake)
                 .setStart(() -> intake.MoveIn(0))
                 .setUpdate(() -> intake.MoveIn(0))
-                .setIsDone(() -> false)
+                .setIsDone(() -> true)
                 .setInterruptible(true);
     }
 
