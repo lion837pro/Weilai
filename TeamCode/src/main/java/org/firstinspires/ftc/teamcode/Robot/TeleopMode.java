@@ -84,8 +84,7 @@ public class TeleopMode extends NextFTCOpMode {
 
         // Intake controls
         a.whenBecomesTrue(IntakeCommands.runIntakeWithSpindexer(spindexer, intake, 0.7, feedback));
-        a.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
-        a.whenBecomesFalse(IntakeCommands.stopIntake(intake));
+        a.whenBecomesFalse(IntakeCommands.stopIntakeWithSpindexer(spindexer, intake));
         b.whenBecomesTrue(IntakeCommands.runIntake(intake, -0.7));
         b.whenBecomesFalse(IntakeCommands.stopIntake(intake));
 
@@ -99,13 +98,11 @@ public class TeleopMode extends NextFTCOpMode {
         right_bumper.whenTrue(ShooterCommands.teleopShootColorSortedAutoAim(
                 shooter, spindexer, intake, chassis, feedback));
         right_bumper.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
-        right_bumper.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
-        right_bumper.whenBecomesFalse(IntakeCommands.stopIntake(intake));
+        right_bumper.whenBecomesFalse(IntakeCommands.stopIntakeWithSpindexer(spindexer, intake));
 
         y.whenBecomesTrue(ShooterCommands.teleopShootFixedRPM(shooter, spindexer, intake, 1600, feedback));
         y.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
-        y.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
-        y.whenBecomesFalse(IntakeCommands.stopIntake(intake));
+        y.whenBecomesFalse(IntakeCommands.stopIntakeWithSpindexer(spindexer, intake));
 
         // Vision controls
         left_bumper.whenTrue(DriveCommands.alignWithJoysticks(chassis,

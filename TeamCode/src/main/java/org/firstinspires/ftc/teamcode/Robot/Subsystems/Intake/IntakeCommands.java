@@ -39,6 +39,22 @@ public class IntakeCommands {
                 .setInterruptible(true);
     }
 
+    /**
+     * Stop both intake and spindexer (properly interrupts runIntakeWithSpindexer)
+     */
+    public static Command stopIntakeWithSpindexer(Spindexer spindexer, Intake intake) {
+        return new LambdaCommand()
+                .named("stopIntakeWithSpindexer")
+                .requires(spindexer)
+                .requires(intake)
+                .setStart(() -> {
+                    intake.MoveIn(0);
+                    spindexer.stop();
+                })
+                .setIsDone(() -> true)
+                .setInterruptible(true);
+    }
+
     // ========================================================================
     // INTAKE SEQUENCES WITH SPINDEXER
     // ========================================================================

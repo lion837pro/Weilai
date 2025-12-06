@@ -282,9 +282,15 @@ public class SuperChassis implements Subsystem {
             // Follower or gyro not ready
         }
     }
+    // Acceleration limiting state for smooth drive
+    private double lastForward = 0;
+    private double lastStrafe = 0;
+    private double lastTurn = 0;
+    private static final double MAX_ACCEL = 0.08; // Max change per update cycle (~50Hz = ~4 per second)
+
     /**
      * True holonomic mecanum drive with all axes working together.
-     * Uses Pedro's setTeleOpDrive for smooth acceleration and deceleration.
+     * Implements proper mecanum math with acceleration limiting for smooth control.
      * @param forward Forward/backward movement (-1 to 1)
      * @param strafe Left/right movement (-1 to 1)
      * @param turn Rotation movement (-1 to 1)
@@ -292,21 +298,73 @@ public class SuperChassis implements Subsystem {
      */
     public void driveHolonomic(double forward, double strafe, double turn, boolean robotCentric) {
         try {
-            if (follower() == null) return;
+            if (follower() == null || follower().getDrivetrain() == null) return;
 
-            // Scale inputs to match tuner speed/feel
-            forward *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
-            strafe *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
-            turn *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
+            // Apply acceleration limiting for smooth control
+            forward = applyAccelLimit(forward, lastForward);
+            strafe = applyAccelLimit(strafe, lastStrafe);
+            turn = applyAccelLimit(turn, lastTurn);
 
-            // Use Pedro's setTeleOpDrive for smooth control with built-in acceleration limiting
-            // This provides the same smooth feel as the tuner
-            // Params: forward (Y), strafe (X), turn, fieldCentric (opposite of robotCentric)
-            follower().setTeleOpDrive(forward, strafe, turn, !robotCentric);
+            lastForward = forward;
+            lastStrafe = strafe;
+            lastTurn = turn;
+
+            // Field-oriented control: rotate inputs by robot heading
+            double rotatedForward = forward;
+            double rotatedStrafe = strafe;
+
+            if (!robotCentric) {
+                double heading = getAngle().inRad;
+                double cosH = Math.cos(-heading);
+                double sinH = Math.sin(-heading);
+
+                rotatedForward = forward * cosH - strafe * sinH;
+                rotatedStrafe = forward * sinH + strafe * cosH;
+            }
+
+            // Mecanum drive math - all three axes combined (true holonomic)
+            double fl = rotatedForward + rotatedStrafe + turn;
+            double fr = rotatedForward - rotatedStrafe - turn;
+            double bl = rotatedForward - rotatedStrafe + turn;
+            double br = rotatedForward + rotatedStrafe - turn;
+
+            // Normalize to preserve direction ratios
+            double maxMagnitude = Math.max(
+                    Math.max(Math.abs(fl), Math.abs(fr)),
+                    Math.max(Math.abs(bl), Math.abs(br))
+            );
+
+            if (maxMagnitude > 1.0) {
+                fl /= maxMagnitude;
+                fr /= maxMagnitude;
+                bl /= maxMagnitude;
+                br /= maxMagnitude;
+            }
+
+            // Apply power scaling
+            fl *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
+            fr *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
+            bl *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
+            br *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
+
+            // Motor order: [FL, BL, FR, BR]
+            double[] powers = {fl, bl, fr, br};
+            follower().getDrivetrain().runDrive(powers);
 
         } catch (Exception e) {
             ActiveOpMode.telemetry().addData("Holonomic Drive Error", e.getMessage());
         }
+    }
+
+    /**
+     * Apply acceleration limiting to smooth out input changes
+     */
+    private double applyAccelLimit(double target, double current) {
+        double delta = target - current;
+        if (Math.abs(delta) > MAX_ACCEL) {
+            return current + Math.copySign(MAX_ACCEL, delta);
+        }
+        return target;
     }
     public void stop() {
 
