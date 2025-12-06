@@ -86,19 +86,19 @@ public class SpindexerConstants {
     }
 
     // ===== CONTROL GAINS =====
-    // Optimized Position PID for precise indexing
-    public static final double kP = 0.015;     // Proportional - increased for faster response
-    public static final double kI = 0.00001;   // Integral - eliminates steady-state position error
-    public static final double kD = 0.002;     // Derivative - improved damping and overshoot reduction
+    // Tuned Position PID to eliminate oscillation
+    public static final double kP = 0.01;      // Proportional - reduced to prevent overshoot
+    public static final double kI = 0.0;       // Integral - disabled to prevent oscillation
+    public static final double kD = 0.008;     // Derivative - increased 4x for strong damping
 
     // Feedforward for consistent motion
     public static final double kS = 0.05;  // Static friction compensation
     public static final double kV = 0.0;   // Velocity feedforward (not needed for position control)
 
     // ===== MOTION CONSTRAINTS =====
-    public static final double MAX_POWER = 1.0;           // Maximum motor power - increased for faster indexing
+    public static final double MAX_POWER = 0.8;           // Reduced to prevent overshoot
     public static final double HOMING_POWER = 0.3;        // Slow power for homing routine
-    public static final double POSITION_TOLERANCE = 5.0;  // Ticks tolerance for "at position"
+    public static final double POSITION_TOLERANCE = 8.0;  // Wider tolerance to prevent micro-corrections
     public static final double VELOCITY_TOLERANCE = 10.0; // Ticks/sec tolerance for "stopped"
 
     // ===== MECHANICAL OFFSET =====
@@ -111,7 +111,7 @@ public class SpindexerConstants {
     // ===== TIMING =====
     public static final double HOMING_TIMEOUT_MS = 3000;     // Max time to search for home
     public static final double INDEX_TIMEOUT_MS = 1000;      // Max time to move to position
-    public static final double SETTLE_TIME_MS = 30;          // Time to wait after reaching position - reduced for faster indexing
+    public static final double SETTLE_TIME_MS = 100;         // Time to wait after reaching position for stabilization
     public static final double BALL_DETECT_DEBOUNCE_MS = 50; // Debounce for color sensor readings
 
     // ===== COLOR SENSOR THRESHOLDS =====
