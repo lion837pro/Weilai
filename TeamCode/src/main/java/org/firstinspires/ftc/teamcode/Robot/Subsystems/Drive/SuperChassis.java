@@ -270,6 +270,10 @@ public class SuperChassis implements Subsystem {
 
     public void resetHeading() {
         try {
+            // Reset the gyro itself to zero
+            gyro().reset();
+
+            // Also reset the follower's pose tracker heading
             Follower f = follower();
             if (f != null) {
                 com.pedropathing.geometry.Pose pedroPose = f.poseTracker.getPose();
@@ -277,11 +281,12 @@ public class SuperChassis implements Subsystem {
                 f.poseTracker.setPose(reset.toPedroPose());
             }
         } catch (Exception e) {
-            // Follower not ready
+            // Follower or gyro not ready
         }
     }
     /**
-     * True holonomic mecanum drive with all axes working together
+     * True holonomic mecanum drive with all axes working together.
+     * Uses Pedro's setTeleOpDrive for smooth acceleration and deceleration.
      * @param forward Forward/backward movement (-1 to 1)
      * @param strafe Left/right movement (-1 to 1)
      * @param turn Rotation movement (-1 to 1)
@@ -289,59 +294,17 @@ public class SuperChassis implements Subsystem {
      */
     public void driveHolonomic(double forward, double strafe, double turn, boolean robotCentric) {
         try {
-            // Get motor list from your custom chassis
-            if (follower() == null || follower().getDrivetrain() == null) return;
+            if (follower() == null) return;
 
-            // Cast to your custom Chassis type to access motors
-            com.pedropathing.Drivetrain drivetrain = follower().getDrivetrain();
+            // Scale inputs to match tuner speed/feel
+            forward *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
+            strafe *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
+            turn *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
 
-            // Field-oriented control: rotate inputs by robot heading
-            double rotatedForward = forward;
-            double rotatedStrafe = strafe;
-
-            if (!robotCentric) {
-                double heading = getAngle().inRad;
-                double cosH = Math.cos(-heading);
-                double sinH = Math.sin(-heading);
-
-                rotatedForward = forward * cosH - strafe * sinH;
-                rotatedStrafe = forward * sinH + strafe * cosH;
-            }
-
-            // Mecanum drive math (X-configuration standard - GM0)
-            // FL: forward + strafe + turn
-            // FR: forward - strafe - turn
-            // BL: forward - strafe + turn  (strafe opposite to FL, turn opposite)
-            // BR: forward + strafe - turn  (strafe opposite to FR, turn opposite)
-            double fl = rotatedForward + rotatedStrafe + turn;
-            double fr = rotatedForward - rotatedStrafe - turn;
-            double bl = rotatedForward - rotatedStrafe + turn;
-            double br = rotatedForward + rotatedStrafe - turn;
-
-            // FIRST: Normalize while preserving direction ratios
-            double maxMagnitude = Math.max(
-                    Math.max(Math.abs(fl), Math.abs(fr)),
-                    Math.max(Math.abs(bl), Math.abs(br))
-            );
-
-            if (maxMagnitude > 1.0) {
-                fl /= maxMagnitude;
-                fr /= maxMagnitude;
-                bl /= maxMagnitude;
-                br /= maxMagnitude;
-            }
-
-            // THEN: Apply TeleOp power scaling to match tuner speed
-            // This ensures scaling is always applied consistently
-            fl *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
-            fr *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
-            bl *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
-            br *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
-
-            // Apply to drivetrain
-            // Motor order for Pedro: [leftFront, leftRear, rightFront, rightRear] = [FL, BL, FR, BR]
-            double[] powers = {fl, bl, fr, br};
-            drivetrain.runDrive(powers);
+            // Use Pedro's setTeleOpDrive for smooth control with built-in acceleration limiting
+            // This provides the same smooth feel as the tuner
+            // Params: forward (Y), strafe (X), turn, fieldCentric (opposite of robotCentric)
+            follower().setTeleOpDrive(forward, strafe, turn, !robotCentric);
 
         } catch (Exception e) {
             ActiveOpMode.telemetry().addData("Holonomic Drive Error", e.getMessage());
