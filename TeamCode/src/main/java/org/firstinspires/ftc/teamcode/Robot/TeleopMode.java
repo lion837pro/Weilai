@@ -83,10 +83,8 @@ public class TeleopMode extends NextFTCOpMode {
                 "Reset Color Sort Tag", chassis::resetColorSortTag));
 
         // Intake controls
-        a.whenBecomesTrue(IntakeCommands.runIntakeWithSpindexer(spindexer, intake, 0.7, feedback));
-        a.whenBecomesFalse(IntakeCommands.stopIntakeWithSpindexer(spindexer, intake));
-        b.whenBecomesTrue(IntakeCommands.runIntake(intake, -0.7));
-        b.whenBecomesFalse(IntakeCommands.stopIntake(intake));
+        a.whenTrue(IntakeCommands.runIntakeWithSpindexer(spindexer, intake, 0.7, feedback));
+        b.whenTrue(IntakeCommands.runIntake(intake, -0.7));
 
         // Shooter controls (standalone)
         x.whenTrue(ShooterCommands.runShooterPID(shooter, 1600, feedback));
@@ -97,12 +95,8 @@ public class TeleopMode extends NextFTCOpMode {
         // Full shooting sequences (PRIMARY COMPETITION CONTROLS)
         right_bumper.whenTrue(ShooterCommands.teleopShootColorSortedAutoAim(
                 shooter, spindexer, intake, chassis, feedback));
-        right_bumper.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
-        right_bumper.whenBecomesFalse(IntakeCommands.stopIntakeWithSpindexer(spindexer, intake));
 
-        y.whenBecomesTrue(ShooterCommands.teleopShootFixedRPM(shooter, spindexer, intake, 1600, feedback));
-        y.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
-        y.whenBecomesFalse(IntakeCommands.stopIntakeWithSpindexer(spindexer, intake));
+        y.whenTrue(ShooterCommands.teleopShootFixedRPM(shooter, spindexer, intake, 1600, feedback));
 
         // Vision controls
         left_bumper.whenTrue(DriveCommands.alignWithJoysticks(chassis,
@@ -120,9 +114,8 @@ public class TeleopMode extends NextFTCOpMode {
                 () -> gamepad1.right_stick_x, false));
         shooter.setDefaultCommand(ShooterCommands.runManualShooter(shooter,
                 () -> gamepad1.right_trigger));
-        // Remove spindexer default command to avoid conflicts with intake command
-        // spindexer.setDefaultCommand(SpindexerCommands.manualSpin(spindexer,
-        //         () -> gamepad1.left_trigger));
+        spindexer.setDefaultCommand(SpindexerCommands.manualSpin(spindexer,
+                () -> gamepad1.left_trigger));
 
         feedback.setReady();
     }
