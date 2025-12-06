@@ -31,10 +31,10 @@ public class DriveCommands {
                     follower().startTeleOpDrive();
                 })
                 .setUpdate(() -> {
-                    // Invert Y-axis (gamepad convention)
+                    // Get joystick inputs (negations handled in TeleOp binding)
                     double fw = forward.getAsDouble();
-                    double st = -strafe.getAsDouble();
-                    double tr = -turn.getAsDouble();
+                    double st = strafe.getAsDouble();
+                    double tr = turn.getAsDouble();
 
                     // Apply deadband
                     if (Math.abs(fw) < 0.05) fw = 0;
