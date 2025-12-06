@@ -339,7 +339,8 @@ public class SuperChassis implements Subsystem {
             br *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
 
             // Apply to drivetrain
-            double[] powers = {fl, fr, bl, br};
+            // Motor order for Pedro: [leftFront, leftRear, rightFront, rightRear] = [FL, BL, FR, BR]
+            double[] powers = {fl, bl, fr, br};
             drivetrain.runDrive(powers);
 
         } catch (Exception e) {
