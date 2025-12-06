@@ -123,6 +123,9 @@ public class IntakeCommands {
 
                     // Check for ball detection when at intake position
                     if (spindexer.atPosition() && spindexer.isAtIntakePosition()) {
+                        // Force check for ball at current position
+                        spindexer.forceCheckBall();
+
                         int currentSlot = spindexer.getCurrentPosition() / 2;
                         if (spindexer.hasBall(currentSlot)) {
                             // Ball was just detected - provide feedback

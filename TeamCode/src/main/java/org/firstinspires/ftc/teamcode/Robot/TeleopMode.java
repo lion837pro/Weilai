@@ -120,8 +120,9 @@ public class TeleopMode extends NextFTCOpMode {
                 () -> gamepad1.right_stick_x, false));
         shooter.setDefaultCommand(ShooterCommands.runManualShooter(shooter,
                 () -> gamepad1.right_trigger));
-        spindexer.setDefaultCommand(SpindexerCommands.manualSpin(spindexer,
-                () -> gamepad1.left_trigger));
+        // Remove spindexer default command to avoid conflicts with intake command
+        // spindexer.setDefaultCommand(SpindexerCommands.manualSpin(spindexer,
+        //         () -> gamepad1.left_trigger));
 
         feedback.setReady();
     }
@@ -131,7 +132,8 @@ public class TeleopMode extends NextFTCOpMode {
     @Override
     public void onWaitForStart() {
         // Auto-home spindexer during init (run directly, not as command)
-        telemetry.addData("Spindexer", "Homing...");
+        telemetry.addData("Spindexer", "Starting homing...");
+        telemetry.addData("Limit Switch", "Raw state: " + spindexer.getLimitSwitchRawState());
         telemetry.update();
 
         spindexer.startHoming();
@@ -139,9 +141,19 @@ public class TeleopMode extends NextFTCOpMode {
         // Wait for limit switch to trigger (with timeout)
         long startTime = System.currentTimeMillis();
         long timeout = 5000; // 5 second timeout
+        int iterations = 0;
 
         while (!spindexer.isAtHome() && (System.currentTimeMillis() - startTime) < timeout) {
-            // Wait for limit switch
+            iterations++;
+            // Update telemetry every 100ms
+            if (iterations % 10 == 0) {
+                long elapsed = System.currentTimeMillis() - startTime;
+                telemetry.addData("Homing", "Time: %dms", elapsed);
+                telemetry.addData("Limit Raw", spindexer.getLimitSwitchRawState() ? "HIGH" : "LOW");
+                telemetry.addData("At Home", spindexer.isAtHome() ? "YES" : "NO");
+                telemetry.update();
+            }
+
             try {
                 Thread.sleep(10);
             } catch (InterruptedException e) {
@@ -151,12 +163,20 @@ public class TeleopMode extends NextFTCOpMode {
 
         if (spindexer.isAtHome()) {
             spindexer.finishHoming();
-            telemetry.addData("Spindexer", "Homed successfully");
+            telemetry.addData("Spindexer", "✓ Homed successfully");
         } else {
             spindexer.stop();
-            telemetry.addData("Spindexer", "Homing timeout - check limit switch");
+            telemetry.addData("Spindexer", "✗ Homing timeout");
+            telemetry.addData("Check", "Limit switch connection");
         }
         telemetry.update();
+
+        // Give user time to see result
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            // Ignore
+        }
     }
 
     @Override

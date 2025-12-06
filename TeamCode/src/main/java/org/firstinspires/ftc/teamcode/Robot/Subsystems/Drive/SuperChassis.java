@@ -282,15 +282,9 @@ public class SuperChassis implements Subsystem {
             // Follower or gyro not ready
         }
     }
-    // Acceleration limiting state for smooth drive
-    private double lastForward = 0;
-    private double lastStrafe = 0;
-    private double lastTurn = 0;
-    private static final double MAX_ACCEL = 0.08; // Max change per update cycle (~50Hz = ~4 per second)
-
     /**
      * True holonomic mecanum drive with all axes working together.
-     * Implements proper mecanum math with acceleration limiting for smooth control.
+     * Implements proper mecanum math for simultaneous driving, strafing, and turning.
      * @param forward Forward/backward movement (-1 to 1)
      * @param strafe Left/right movement (-1 to 1)
      * @param turn Rotation movement (-1 to 1)
@@ -299,15 +293,6 @@ public class SuperChassis implements Subsystem {
     public void driveHolonomic(double forward, double strafe, double turn, boolean robotCentric) {
         try {
             if (follower() == null || follower().getDrivetrain() == null) return;
-
-            // Apply acceleration limiting for smooth control
-            forward = applyAccelLimit(forward, lastForward);
-            strafe = applyAccelLimit(strafe, lastStrafe);
-            turn = applyAccelLimit(turn, lastTurn);
-
-            lastForward = forward;
-            lastStrafe = strafe;
-            lastTurn = turn;
 
             // Field-oriented control: rotate inputs by robot heading
             double rotatedForward = forward;
@@ -354,17 +339,6 @@ public class SuperChassis implements Subsystem {
         } catch (Exception e) {
             ActiveOpMode.telemetry().addData("Holonomic Drive Error", e.getMessage());
         }
-    }
-
-    /**
-     * Apply acceleration limiting to smooth out input changes
-     */
-    private double applyAccelLimit(double target, double current) {
-        double delta = target - current;
-        if (Math.abs(delta) > MAX_ACCEL) {
-            return current + Math.copySign(MAX_ACCEL, delta);
-        }
-        return target;
     }
     public void stop() {
 
