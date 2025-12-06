@@ -331,6 +331,13 @@ public class SuperChassis implements Subsystem {
                 br /= maxMagnitude;
             }
 
+            // THEN: Apply TeleOp power scaling to match tuner speed
+            // This ensures scaling is always applied consistently
+            fl *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
+            fr *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
+            bl *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
+            br *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
+
             // Apply to drivetrain
             double[] powers = {fl, fr, bl, br};
             drivetrain.runDrive(powers);

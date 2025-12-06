@@ -25,6 +25,11 @@ public class ChassisConstants {
     public  static  final  boolean brInverted = false;
     public  static  final  boolean blInverted = false;
 
+    // TeleOp drive power multiplier - Tune this to match tuner speed
+    // Default: 1.0 (100%), increase if TeleOp is slower than tuner
+    // Typical range: 1.0 to 1.5
+    public static final double TELEOP_DRIVE_POWER_SCALE = 1.3;
+
 
     // GoBilda Strafer V5 Standard Motor Configuration
     // FL: REVERSE, FR: FORWARD, BL: REVERSE, BR: FORWARD
