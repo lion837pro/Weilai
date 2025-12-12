@@ -83,8 +83,11 @@ public class TeleopMode extends NextFTCOpMode {
                 "Reset Color Sort Tag", chassis::resetColorSortTag));
 
         // Intake controls
-        a.whenTrue(IntakeCommands.runIntakeWithSpindexer(spindexer, intake, 0.7, feedback));
-        b.whenTrue(IntakeCommands.runIntake(intake, -0.7));
+        a.whenBecomesTrue(IntakeCommands.runIntakeWithSpindexer(spindexer, intake, 0.7, feedback));
+        a.whenBecomesFalse(IntakeCommands.stopIntakeWithSpindexer(spindexer, intake));
+
+        b.whenBecomesTrue(IntakeCommands.runIntake(intake, -0.7));
+        b.whenBecomesFalse(IntakeCommands.stopIntakeWithSpindexer(spindexer, intake));
 
         // Shooter controls (standalone)
         x.whenTrue(ShooterCommands.runShooterPID(shooter, 1600, feedback));

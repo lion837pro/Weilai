@@ -282,16 +282,10 @@ public class SuperChassis implements Subsystem {
             // Follower or gyro not ready
         }
     }
-    // Acceleration limiting state for smooth drive
-    private double lastForward = 0;
-    private double lastStrafe = 0;
-    private double lastTurn = 0;
-    private static final double MAX_ACCEL = 0.3; // Gentle acceleration limiting (~15 per second at 50Hz)
-
     /**
      * True holonomic mecanum drive with all axes working together.
      * Implements proper mecanum math for simultaneous driving, strafing, and turning.
-     * Field-oriented mode uses 90° as forward direction.
+     * Field-oriented mode.
      * @param forward Forward/backward movement (-1 to 1)
      * @param strafe Left/right movement (-1 to 1)
      * @param turn Rotation movement (-1 to 1)
@@ -301,30 +295,27 @@ public class SuperChassis implements Subsystem {
         try {
             if (follower() == null || follower().getDrivetrain() == null) return;
 
-            // Apply gentle acceleration limiting for smooth control
-            forward = applyAccelLimit(forward, lastForward);
-            strafe = applyAccelLimit(strafe, lastStrafe);
-            turn = applyAccelLimit(turn, lastTurn);
-
-            lastForward = forward;
-            lastStrafe = strafe;
-            lastTurn = turn;
-
             // Field-oriented control: rotate inputs by robot heading
             double rotatedForward = forward;
             double rotatedStrafe = strafe;
 
             if (!robotCentric) {
-                // Offset heading so 90° is considered "forward" on the field
-                double heading = getAngle().inRad - Math.PI / 2.0;
+                double heading = getAngle().inRad;
+                // Standard field-centric rotation
+                // Rotate input vector counter to robot rotation
                 double cosH = Math.cos(-heading);
                 double sinH = Math.sin(-heading);
 
-                rotatedForward = forward * cosH - strafe * sinH;
-                rotatedStrafe = forward * sinH + strafe * cosH;
+                rotatedForward = strafe * sinH + forward * cosH;
+                rotatedStrafe = strafe * cosH - forward * sinH;
             }
 
             // Mecanum drive math - all three axes combined (true holonomic)
+            // fl = y + x + turn
+            // fr = y - x - turn
+            // bl = y - x + turn
+            // br = y + x - turn
+
             double fl = rotatedForward + rotatedStrafe + turn;
             double fr = rotatedForward - rotatedStrafe - turn;
             double bl = rotatedForward - rotatedStrafe + turn;
@@ -356,17 +347,6 @@ public class SuperChassis implements Subsystem {
         } catch (Exception e) {
             ActiveOpMode.telemetry().addData("Holonomic Drive Error", e.getMessage());
         }
-    }
-
-    /**
-     * Apply gentle acceleration limiting to smooth out input changes
-     */
-    private double applyAccelLimit(double target, double current) {
-        double delta = target - current;
-        if (Math.abs(delta) > MAX_ACCEL) {
-            return current + Math.copySign(MAX_ACCEL, delta);
-        }
-        return target;
     }
     public void stop() {
 

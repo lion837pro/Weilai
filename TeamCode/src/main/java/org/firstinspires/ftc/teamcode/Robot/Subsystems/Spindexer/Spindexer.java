@@ -450,8 +450,13 @@ public class Spindexer implements Subsystem {
     private void updateBallDetection() {
         if (colorSensor1 == null) return;
 
-        // Only detect at intake position and when at target position
-        if (!isAtIntakePosition() || !atPosition()) return;
+        // Only detect when spindexer is generally aligned to intake
+        // We relax the strict atPosition() check to allow detection while settling
+        // as long as we are in an intake position (0, 2, 4)
+        if (!isAtIntakePosition()) return;
+
+        // Optional: Check if we are "close enough" to position if not strictly atPosition
+        // But for now, if we are in Intake Mode (even if oscillating slightly), we want to detect.
 
         int slot = currentPosition / 2;  // 0->0, 2->1, 4->2
 
