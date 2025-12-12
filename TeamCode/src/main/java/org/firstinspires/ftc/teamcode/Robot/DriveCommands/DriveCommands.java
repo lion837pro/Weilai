@@ -54,6 +54,16 @@ public class DriveCommands {
                 .setInterruptible(true);
     }
 
+    public static Command stop(SuperChassis chassis) {
+        return new LambdaCommand()
+                .named("Stop")
+                .requires(chassis)
+                .setStart(chassis::stop)
+                .setUpdate(chassis::stop)
+                .setIsDone(() -> true)
+                .setInterruptible(true);
+    }
+
     public static Command resetHeading(SuperChassis chassis){
         return new InstantCommand("Reset Heading", chassis::resetHeading);
     }
