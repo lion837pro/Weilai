@@ -49,19 +49,19 @@ public class REV312010 {
         switch(state){
             case kGREEN:
                 this.currentState = LEDState.kGREEN;
-                setState(true,false);
+                setState(false,true); // Green LOW (ON), Red HIGH (OFF)
                 break;
             case kRED:
                 this.currentState = LEDState.kRED;
-                setState(false,true);
+                setState(true,false); // Green HIGH (OFF), Red LOW (ON)
                 break;
             case kAMBER:
                 this.currentState = LEDState.kAMBER;
-                setState(true,true);
+                setState(false,false); // Both LOW (ON)
                 break;
             default:
                 this.currentState = LEDState.kOFF;
-                setState(false,false);
+                setState(true,true); // Both HIGH (OFF)
                 break;
         }
     }
