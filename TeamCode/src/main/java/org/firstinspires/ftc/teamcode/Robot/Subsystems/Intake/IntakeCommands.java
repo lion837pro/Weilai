@@ -13,29 +13,29 @@ public class IntakeCommands {
     // ========================================================================
 
     /**
-     * Run intake at a specific speed
+     * Run intake at a specific speed - runs continuously until interrupted
      */
     public static Command runIntake(Intake intake, double speed) {
         return new LambdaCommand()
                 .named("runIntake")
                 .requires(intake)
-                .setStart(() -> {})
+                .setStart(() -> intake.MoveIn(speed))
                 .setUpdate(() -> intake.MoveIn(speed))
                 .setStop(interrupted -> intake.MoveIn(0))
-                .setIsDone(() -> true)
+                .setIsDone(() -> false)  // Run until interrupted
                 .setInterruptible(true);
     }
 
     /**
-     * Stop the intake
+     * Stop the intake - instant command
      */
     public static Command stopIntake(Intake intake) {
         return new LambdaCommand()
                 .named("stopIntake")
                 .requires(intake)
                 .setStart(() -> intake.MoveIn(0))
-                .setUpdate(() -> intake.MoveIn(0))
-                .setIsDone(() -> true)
+                .setUpdate(() -> {})
+                .setIsDone(() -> true)  // Complete immediately after stopping
                 .setInterruptible(true);
     }
 

@@ -282,10 +282,45 @@ public class SuperChassis implements Subsystem {
             // Follower or gyro not ready
         }
     }
+    // Cached motor references for direct control (avoids Pedro's internal state machine)
+    private com.qualcomm.robotcore.hardware.DcMotorEx flMotor, frMotor, blMotor, brMotor;
+    private boolean motorsInitialized = false;
+
+    /**
+     * Initialize direct motor references for smooth teleop control.
+     * This bypasses Pedro's internal state machine which can cause pulsing.
+     */
+    private void initializeMotors() {
+        if (motorsInitialized) return;
+        try {
+            com.qualcomm.robotcore.hardware.HardwareMap hwMap = ActiveOpMode.hardwareMap();
+            flMotor = hwMap.get(com.qualcomm.robotcore.hardware.DcMotorEx.class, ChassisConstants.flName);
+            frMotor = hwMap.get(com.qualcomm.robotcore.hardware.DcMotorEx.class, ChassisConstants.frName);
+            blMotor = hwMap.get(com.qualcomm.robotcore.hardware.DcMotorEx.class, ChassisConstants.blName);
+            brMotor = hwMap.get(com.qualcomm.robotcore.hardware.DcMotorEx.class, ChassisConstants.brName);
+
+            // Set motor directions to match ChassisConstants
+            flMotor.setDirection(com.qualcomm.robotcore.hardware.DcMotorSimple.Direction.REVERSE);
+            frMotor.setDirection(com.qualcomm.robotcore.hardware.DcMotorSimple.Direction.REVERSE);
+            blMotor.setDirection(com.qualcomm.robotcore.hardware.DcMotorSimple.Direction.FORWARD);
+            brMotor.setDirection(com.qualcomm.robotcore.hardware.DcMotorSimple.Direction.FORWARD);
+
+            // Set zero power behavior
+            flMotor.setZeroPowerBehavior(com.qualcomm.robotcore.hardware.DcMotor.ZeroPowerBehavior.BRAKE);
+            frMotor.setZeroPowerBehavior(com.qualcomm.robotcore.hardware.DcMotor.ZeroPowerBehavior.BRAKE);
+            blMotor.setZeroPowerBehavior(com.qualcomm.robotcore.hardware.DcMotor.ZeroPowerBehavior.BRAKE);
+            brMotor.setZeroPowerBehavior(com.qualcomm.robotcore.hardware.DcMotor.ZeroPowerBehavior.BRAKE);
+
+            motorsInitialized = true;
+        } catch (Exception e) {
+            ActiveOpMode.telemetry().addData("Motor Init Error", e.getMessage());
+        }
+    }
+
     /**
      * True holonomic mecanum drive with all axes working together.
      * Implements proper mecanum math for simultaneous driving, strafing, and turning.
-     * Field-oriented mode.
+     * Uses direct motor control to avoid Pedro's internal state machine pulsing.
      * @param forward Forward/backward movement (-1 to 1)
      * @param strafe Left/right movement (-1 to 1)
      * @param turn Rotation movement (-1 to 1)
@@ -293,7 +328,8 @@ public class SuperChassis implements Subsystem {
      */
     public void driveHolonomic(double forward, double strafe, double turn, boolean robotCentric) {
         try {
-            if (follower() == null || follower().getDrivetrain() == null) return;
+            initializeMotors();
+            if (!motorsInitialized) return;
 
             // Field-oriented control: rotate inputs by robot heading
             double rotatedForward = forward;
@@ -334,25 +370,31 @@ public class SuperChassis implements Subsystem {
                 br /= maxMagnitude;
             }
 
-            // Apply power scaling
-            fl *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
-            fr *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
-            bl *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
-            br *= ChassisConstants.TELEOP_DRIVE_POWER_SCALE;
+            // Apply power scaling (clamped to 1.0)
+            double scale = Math.min(ChassisConstants.TELEOP_DRIVE_POWER_SCALE, 1.0);
+            fl *= scale;
+            fr *= scale;
+            bl *= scale;
+            br *= scale;
 
-            // Motor order: [FL, BL, FR, BR]
-            double[] powers = {fl, bl, fr, br};
-            follower().getDrivetrain().runDrive(powers);
+            // Direct motor control - bypasses Pedro's internal state machine
+            flMotor.setPower(fl);
+            frMotor.setPower(fr);
+            blMotor.setPower(bl);
+            brMotor.setPower(br);
 
         } catch (Exception e) {
             ActiveOpMode.telemetry().addData("Holonomic Drive Error", e.getMessage());
         }
     }
     public void stop() {
-
         try {
-            if (follower() != null) {
-                follower().setTeleOpDrive(0, 0, 0, false);
+            initializeMotors();
+            if (motorsInitialized) {
+                flMotor.setPower(0);
+                frMotor.setPower(0);
+                blMotor.setPower(0);
+                brMotor.setPower(0);
             }
         } catch (Exception e) {
             dev.nextftc.ftc.ActiveOpMode.telemetry().addData("SUPERCHASSIS ERROR", e.getMessage());

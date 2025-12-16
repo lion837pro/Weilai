@@ -3,9 +3,36 @@ package org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants;
 
 public class ShooterConstants {
-    public static final String shootername1 = "Sh1";
-    //public static final String shootername2 = "Sh2";
+    // ===== MOTOR CONFIGURATION =====
+    public static final String SHOOTER_MOTOR_1_NAME = "Sh1";
+    public static final String SHOOTER_MOTOR_2_NAME = "Sh2";
 
+    public static final boolean MOTOR_1_INVERTED = true;
+    public static final boolean MOTOR_2_INVERTED = false;  // Usually opposite direction
+
+    // Legacy names for backwards compatibility
+    public static final String shootername1 = SHOOTER_MOTOR_1_NAME;
+    public static final boolean shootername1inverted = MOTOR_1_INVERTED;
+    public static final boolean shootername2inverted = MOTOR_2_INVERTED;
+
+    // ===== HOOD SERVO CONFIGURATION =====
+    public static final String HOOD_SERVO_1_NAME = "hoodServo1";
+    public static final String HOOD_SERVO_2_NAME = "hoodServo2";
+
+    public static final boolean HOOD_SERVO_1_REVERSED = false;
+    public static final boolean HOOD_SERVO_2_REVERSED = true;  // Mirror servo
+
+    // Hood angle presets (servo positions 0.0 to 1.0)
+    public static final double HOOD_MIN_POSITION = 0.0;    // Lowest angle (flat)
+    public static final double HOOD_MAX_POSITION = 1.0;    // Highest angle (steep)
+    public static final double HOOD_DEFAULT_POSITION = 0.5; // Default mid-position
+
+    // Hood angle mapping (for auto-aim)
+    public static final double HOOD_CLOSE_SHOT = 0.3;      // For close range (low trajectory)
+    public static final double HOOD_MID_SHOT = 0.5;        // For medium range
+    public static final double HOOD_FAR_SHOT = 0.7;        // For far range (high trajectory)
+
+    // ===== MOTOR SPECS =====
     public static final double TICKS_PER_REV = 28.0; // For GoBilda Yellow Jacket 1:1
     public static final double MAX_RPM = 6000.0;
 
@@ -16,9 +43,6 @@ public class ShooterConstants {
     public static double ticksPerSecondToRPM(double tps) {
         return (tps * 60.0) / TICKS_PER_REV;
     }
-
-    public static final boolean shootername2inverted = false;
-    public static final boolean shootername1inverted = true;
 
 
     // ===== ACCELERATION LIMITING (PREVENTS BELT SLIP) =====

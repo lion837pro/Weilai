@@ -27,8 +27,7 @@ public class DriveCommands {
                 .named("RunWithJoysticks")
                 .requires(chassis)
                 .setStart(() -> {
-                    // Start teleop mode for Pedro tracking
-                    follower().startTeleOpDrive();
+                    // No Pedro teleop mode - we use direct motor control for smooth driving
                 })
                 .setUpdate(() -> {
                     // Get joystick inputs (negations handled in TeleOp binding)
@@ -42,6 +41,7 @@ public class DriveCommands {
                     if (Math.abs(tr) < 0.05) tr = 0;
 
                     // Use custom holonomic drive with field/robot orientation
+                    // This uses direct motor control to avoid Pedro's state machine pulsing
                     chassis.driveHolonomic(fw, st, tr, robotCentric);
 
                     // Debug telemetry

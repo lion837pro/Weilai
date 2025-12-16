@@ -7,6 +7,8 @@ import org.firstinspires.ftc.teamcode.Robot.Hardware.REV312010;
 import org.firstinspires.ftc.teamcode.Robot.Hardware.REV312010.LEDState;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants.BallColor;
 
+import dev.nextftc.ftc.ActiveOpMode;
+
 /**
  * Robot Feedback utility class
  *
@@ -48,8 +50,34 @@ public class RobotFeedback {
     private boolean strobeOn = false;
     private ElapsedTime strobeTimer = new ElapsedTime();
 
+    // Debug state
+    private String lastEvent = "None";
+    private long lastEventTime = 0;
+
     public RobotFeedback(REV312010 led) {
         this.led = led;
+        if (led != null && led.isInitialized()) {
+            log("LED initialized: Red=" + led.getRedCount() + ", Green=" + led.getGreenCount());
+        } else {
+            log("LED not initialized!");
+        }
+    }
+
+    private void log(String message) {
+        lastEvent = message;
+        lastEventTime = System.currentTimeMillis();
+        try {
+            ActiveOpMode.telemetry().addData("Feedback", message);
+        } catch (Exception e) {
+            // Telemetry not ready
+        }
+    }
+
+    /**
+     * Get the last feedback event for debugging
+     */
+    public String getLastEvent() {
+        return lastEvent;
     }
 
     /**
@@ -58,6 +86,7 @@ public class RobotFeedback {
     public void setGamepads(Gamepad gamepad1, Gamepad gamepad2) {
         this.gamepad1 = gamepad1;
         this.gamepad2 = gamepad2;
+        log("Gamepads set: GP1=" + (gamepad1 != null) + ", GP2=" + (gamepad2 != null));
     }
 
     /**
@@ -77,6 +106,7 @@ public class RobotFeedback {
      * Call when intake mode is started
      */
     public void onIntakeStart() {
+        log("Intake START - LED: AMBER");
         isStrobing = false;
         if (led != null) {
             led.set(LEDState.kAMBER);
@@ -87,6 +117,7 @@ public class RobotFeedback {
      * Call when a ball is successfully intaked
      */
     public void onIntakeSuccess() {
+        log("Intake SUCCESS - LED: GREEN, Rumble: MEDIUM");
         // LED feedback - brief green flash
         isStrobing = false;
         if (led != null) {
@@ -101,6 +132,7 @@ public class RobotFeedback {
      * Call when intake stops
      */
     public void onIntakeStop() {
+        log("Intake STOP - LED: OFF");
         isStrobing = false;
         if (led != null) {
             led.set(LEDState.kOFF);
@@ -111,6 +143,7 @@ public class RobotFeedback {
      * Call when shooter is spinning up
      */
     public void onShooterSpinUp(BallColor nextBallColor) {
+        log("Shooter SPIN UP - Ball: " + nextBallColor + ", Strobing");
         if (led != null) {
             // Start strobing in ball color
             isStrobing = true;
@@ -136,6 +169,7 @@ public class RobotFeedback {
      * Call when a ball is shot
      */
     public void onBallShot(BallColor ballColor) {
+        log("Ball SHOT - Color: " + ballColor + ", Rumble: STRONG");
         // LED feedback - static ball color
         isStrobing = false;
         if (led != null) {
@@ -160,6 +194,7 @@ public class RobotFeedback {
      * Call when shooter reaches target RPM
      */
     public void onShooterAtRPM() {
+        log("Shooter AT RPM - Rumble: LIGHT");
         // Stop strobing, set solid color
         isStrobing = false;
         if (led != null) {
@@ -174,6 +209,7 @@ public class RobotFeedback {
      * Call when shooter sequence stops
      */
     public void onShooterStop() {
+        log("Shooter STOP - LED: OFF");
         isStrobing = false;
         if (led != null) {
             led.set(LEDState.kOFF);
@@ -184,6 +220,7 @@ public class RobotFeedback {
      * Call when spindexer becomes full
      */
     public void onSpindexerFull() {
+        log("Spindexer FULL - LED: AMBER, Rumble: STRONG");
         // LED feedback
         isStrobing = false;
         if (led != null) {
@@ -198,6 +235,7 @@ public class RobotFeedback {
      * Call when spindexer becomes empty
      */
     public void onSpindexerEmpty() {
+        log("Spindexer EMPTY - LED: GREEN");
         isStrobing = false;
         if (led != null) {
             led.set(LEDState.kGREEN);
@@ -208,6 +246,7 @@ public class RobotFeedback {
      * Set LED to ready state
      */
     public void setReady() {
+        log("State: READY - LED: GREEN");
         isStrobing = false;
         if (led != null) {
             led.set(LEDState.kGREEN);
@@ -218,6 +257,7 @@ public class RobotFeedback {
      * Set LED to idle state
      */
     public void setIdle() {
+        log("State: IDLE - LED: OFF");
         isStrobing = false;
         if (led != null) {
             led.set(LEDState.kOFF);

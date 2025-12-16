@@ -9,6 +9,8 @@ import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants;
  * - Positions 0, 2, 4 are aligned with the INTAKE (ball loading positions)
  * - Positions 1, 3, 5 are aligned with the SHOOTER (ball firing positions)
  *
+ * HARDWARE: 3 servos in a gearbox (synchronized movement)
+ *
  * Physical layout (top view):
  *           SHOOTER
  *              |
@@ -23,18 +25,47 @@ import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants;
 public class SpindexerConstants {
 
     // ===== HARDWARE NAMES =====
-    public static final String spindexer = "spin";
+    public static final String SERVO_1_NAME = "spinServo1";  // First servo in gearbox
+    public static final String SERVO_2_NAME = "spinServo2";  // Second servo in gearbox
+    public static final String SERVO_3_NAME = "spinServo3";  // Third servo in gearbox
     public static final String LIMIT_SWITCH_NAME = "spindexerLimit";  // Magnetic limit switch for homing
     public static final String COLOR_SENSOR_1_NAME = "colorS1";  // Detects ball at intake
     public static final String COLOR_SENSOR_2_NAME = "colorS2";  // Secondary sensor (optional)
 
+    // ===== LEGACY MOTOR NAME (for backwards compatibility) =====
+    public static final String spindexer = "spin";  // Motor name if using motor instead of servos
+
     // ===== LIMIT SWITCH CONFIGURATION =====
     // Polarity: true = active-low (triggered when LOW), false = active-high (triggered when HIGH)
-    // Most REV magnetic limit switches are active-low, but check your specific sensor
-    // Changed to active-high based on testing - sensor shows HIGH when open, needs HIGH for trigger
     public static final boolean LIMIT_SWITCH_ACTIVE_LOW = true;
 
-    // ===== MOTOR CONFIGURATION =====
+    // ===== SERVO CONFIGURATION =====
+    // Use servos (true) or motor (false)
+    public static final boolean USE_SERVOS = true;
+
+    // Servo direction (set to true to reverse servo direction)
+    public static final boolean SERVO_1_REVERSED = false;
+    public static final boolean SERVO_2_REVERSED = false;
+    public static final boolean SERVO_3_REVERSED = false;
+
+    // Servo range (0.0 to 1.0 maps to this range in degrees)
+    // For continuous rotation servos, this determines speed/direction
+    // For positional servos, this is the actual angle range
+    public static final double SERVO_RANGE_DEGREES = 300.0;  // Typical programmable servo range
+
+    // Position presets as servo positions (0.0 to 1.0)
+    // These map 6 positions across the servo's range
+    // Calculated: position_n = n * (1.0 / 6.0) = n * 0.1667
+    public static final double[] SERVO_POSITIONS = {
+            0.000,  // Position 0 - Home/Intake 1
+            0.167,  // Position 1 - Shooter 1
+            0.333,  // Position 2 - Intake 2
+            0.500,  // Position 3 - Shooter 2
+            0.667,  // Position 4 - Intake 3
+            0.833   // Position 5 - Shooter 3
+    };
+
+    // ===== MOTOR CONFIGURATION (legacy, if USE_SERVOS = false) =====
     public static final boolean MOTOR_INVERTED = false;
     public static final double TICKS_PER_REV = 28.0;  // GoBilda Yellow Jacket encoder ticks per motor revolution
     public static final double GEAR_RATIO = 19.2;     // External gear ratio (motor:spindexer)
@@ -42,7 +73,7 @@ public class SpindexerConstants {
     // Calculated: Total ticks for one full spindexer rotation
     public static final double TICKS_PER_SPINDEXER_REV = TICKS_PER_REV * GEAR_RATIO;
 
-    // ===== POSITION PRESETS (in encoder ticks from home) =====
+    // ===== POSITION PRESETS =====
     // 6 positions at 60 degree intervals
     public static final double DEGREES_PER_POSITION = 60.0;
     public static final double TICKS_PER_DEGREE = TICKS_PER_SPINDEXER_REV / 360.0;
