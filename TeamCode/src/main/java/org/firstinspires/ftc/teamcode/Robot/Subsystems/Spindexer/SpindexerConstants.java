@@ -48,39 +48,42 @@ public class SpindexerConstants {
     public static final boolean SERVO_2_REVERSED = false;
     public static final boolean SERVO_3_REVERSED = false;
 
-    // Servo range (0.0 to 1.0 maps to this range in degrees)
-    // For continuous rotation servos, this determines speed/direction
-    // For positional servos, this is the actual angle range
-    public static final double SERVO_RANGE_DEGREES = 300.0;  // Typical programmable servo range
-
-    // Position presets as servo positions (0.0 to 1.0)
-    // These map 6 positions across the servo's range
-    // Calculated: position_n = n * (1.0 / 6.0) = n * 0.1667
-    public static final double[] SERVO_POSITIONS = {
-            0.000,  // Position 0 - Home/Intake 1
-            0.167,  // Position 1 - Shooter 1
-            0.333,  // Position 2 - Intake 2
-            0.500,  // Position 3 - Shooter 2
-            0.667,  // Position 4 - Intake 3
-            0.833   // Position 5 - Shooter 3
-    };
-
-    // ===== MOTOR CONFIGURATION (legacy, if USE_SERVOS = false) =====
-    public static final boolean MOTOR_INVERTED = false;
-    public static final double TICKS_PER_REV = 28.0;  // GoBilda Yellow Jacket encoder ticks per motor revolution
-    public static final double GEAR_RATIO = 19.2;     // External gear ratio (motor:spindexer)
-
-    // Calculated: Total ticks for one full spindexer rotation
-    public static final double TICKS_PER_SPINDEXER_REV = TICKS_PER_REV * GEAR_RATIO;
-
     // ===== POSITION PRESETS =====
-    // 6 positions at 60 degree intervals
-    public static final double DEGREES_PER_POSITION = 60.0;
-    public static final double TICKS_PER_DEGREE = TICKS_PER_SPINDEXER_REV / 360.0;
-
-    // Position indices
+    // Position indices (defined first as they're used by other constants)
     public static final int POSITION_COUNT = 6;
     public static final int SLOTS_COUNT = 3;  // Number of ball slots
+
+    // 6 positions at 60 degree intervals
+    public static final double DEGREES_PER_POSITION = 60.0;
+
+    // Virtual ticks for position tracking (compatible with motor mode code)
+    // Using 600 ticks per revolution for easy math (100 ticks per position)
+    public static final double VIRTUAL_TICKS_PER_REV = 600.0;
+    public static final double VIRTUAL_TICKS_PER_POSITION = VIRTUAL_TICKS_PER_REV / POSITION_COUNT;  // 100 ticks
+    public static final double VIRTUAL_TICKS_PER_DEGREE = VIRTUAL_TICKS_PER_REV / 360.0;
+
+    // Legacy motor constants (kept for compatibility)
+    public static final double TICKS_PER_SPINDEXER_REV = VIRTUAL_TICKS_PER_REV;
+    public static final double TICKS_PER_DEGREE = VIRTUAL_TICKS_PER_DEGREE;
+
+    // ===== CONTINUOUS ROTATION SERVO CONFIGURATION =====
+    // GoBilda servos in continuous mode: 0.0 = full reverse, 0.5 = stop, 1.0 = full forward
+    public static final double CR_SERVO_STOP = 0.5;        // Servo value for stopped
+    public static final double CR_SERVO_FORWARD = 1.0;     // Servo value for full forward
+    public static final double CR_SERVO_REVERSE = 0.0;     // Servo value for full reverse
+
+    // Time to rotate 60 degrees (one position) at full power - TUNE THIS VALUE
+    // Measured empirically: run servo at full power and time how long for 60 degrees
+    public static final double MS_PER_POSITION_FULL_POWER = 200.0;  // milliseconds per 60 degrees at full speed
+
+    // Default rotation power for indexing (0.0 to 1.0, will be scaled)
+    public static final double CR_SERVO_INDEX_POWER = 0.6;  // 60% power for controlled movement
+
+    // Time per position adjusted for indexing power
+    public static final double MS_PER_POSITION = MS_PER_POSITION_FULL_POWER / CR_SERVO_INDEX_POWER;
+
+    // Degrees per millisecond at full power (for calculations)
+    public static final double DEGREES_PER_MS_FULL_POWER = DEGREES_PER_POSITION / MS_PER_POSITION_FULL_POWER;
 
     // ===== SHOOTING SEQUENCE TIMING =====
     public static final long FEED_DURATION_MS = 300;  // Time to feed ball into shooter (milliseconds)
