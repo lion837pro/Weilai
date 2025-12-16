@@ -144,6 +144,13 @@ public class SpindexerCommands {
     }
 
     /**
+     * Alias for prepareForIntake - moves to next empty slot at intake position
+     */
+    public static Command goToNextIntakePosition(Spindexer spindexer) {
+        return prepareForIntake(spindexer);
+    }
+
+    /**
      * Position spindexer for shooting - moves to next loaded slot at shooter position
      */
     public static Command prepareForShoot(Spindexer spindexer) {
@@ -157,6 +164,13 @@ public class SpindexerCommands {
                 })
                 .setIsDone(() -> spindexer.atPosition())
                 .setInterruptible(true);
+    }
+
+    /**
+     * Alias for prepareForShoot - moves to next loaded slot at shooter position
+     */
+    public static Command goToNextShooterPosition(Spindexer spindexer) {
+        return prepareForShoot(spindexer);
     }
 
     // ========================================================================

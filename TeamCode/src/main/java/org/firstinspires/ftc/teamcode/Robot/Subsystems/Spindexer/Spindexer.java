@@ -78,14 +78,12 @@ public class Spindexer implements Subsystem {
     // private double lastError = 0.0;            // Previous error for derivative term
     // private long lastPIDTime = 0;              // Last time PID was calculated
 
-    // Shooter offset state (for mechanical clearance) - MOTOR MODE COMMENTED OUT
-    // private boolean isInOffsetPosition = false;  // True when spindexer is offset for shooter spin-up
-    // private double baseShooterTicks = 0;         // The base shooter position (before offset)
-
     // Timing
     private ElapsedTime moveTimer = new ElapsedTime();
-    // private ElapsedTime settleTimer = new ElapsedTime();  // MOTOR MODE COMMENTED OUT
-    // private boolean isSettling = false;  // MOTOR MODE COMMENTED OUT
+
+    // Shooter offset state (for mechanical clearance) - Servo mode
+    private boolean isInOffsetPosition = false;  // True when spindexer is offset for shooter spin-up
+    private double baseShooterServoPos = 0;      // The base shooter position (before offset)
 
     // Default command
     private Command defaultCommand = new NullCommand();
@@ -443,54 +441,60 @@ public class Spindexer implements Subsystem {
         goToPosition(prevPos);
     }
 
-    // ===== SHOOTER CLEARANCE OFFSET - MOTOR MODE COMMENTED OUT =====
+    // ===== SHOOTER CLEARANCE OFFSET - SERVO MODE =====
+    // Offset to move ball away from shooter wheel during spin-up
 
-    // /**
-    //  * Apply offset to move ball away from shooter wheel during spin-up.
-    //  * Call this BEFORE spinning up the shooter to prevent ball friction.
-    //  * The spindexer should already be at a shooter position.
-    //  */
-    // public void applyShooterOffset() {
-    //     if (isInOffsetPosition) return;  // Already offset
-    //
-    //     baseShooterTicks = getCurrentTicks();
-    //     targetTicks = baseShooterTicks + SpindexerConstants.SHOOTER_CLEARANCE_OFFSET_TICKS;
-    //     hasTarget = true;
-    //     isMoving = true;
-    //     isSettling = false;
-    //     isInOffsetPosition = true;
-    //     moveTimer.reset();
-    // }
+    /**
+     * Calculate servo offset for shooter clearance (60 degrees = 1/6 of full rotation)
+     */
+    private static final double SERVO_OFFSET = 1.0 / 6.0;  // 60 degrees in servo units
 
-    // /**
-    //  * Remove offset to bring ball back to shooter position for firing.
-    //  * Call this AFTER shooter reaches target RPM.
-    //  */
-    // public void removeShooterOffset() {
-    //     if (!isInOffsetPosition) return;  // Not offset
-    //
-    //     targetTicks = baseShooterTicks;
-    //     hasTarget = true;
-    //     isMoving = true;
-    //     isSettling = false;
-    //     isInOffsetPosition = false;
-    //     moveTimer.reset();
-    // }
+    /**
+     * Apply offset to move ball away from shooter wheel during spin-up.
+     * Call this BEFORE spinning up the shooter to prevent ball friction.
+     * The spindexer should already be at a shooter position.
+     */
+    public void applyShooterOffset() {
+        if (isInOffsetPosition) return;  // Already offset
 
-    // /**
-    //  * Check if spindexer is in offset position
-    //  */
-    // public boolean isInOffsetPosition() {
-    //     return isInOffsetPosition;
-    // }
+        baseShooterServoPos = getServoPosition();
+        double offsetPos = baseShooterServoPos + SERVO_OFFSET;
+        // Wrap around if needed (keep in 0-1 range)
+        if (offsetPos > 1.0) offsetPos -= 1.0;
 
-    // /**
-    //  * Reset offset state (call when starting a new shooting sequence)
-    //  */
-    // public void resetOffsetState() {
-    //     isInOffsetPosition = false;
-    //     baseShooterTicks = 0;
-    // }
+        setServoPosition(offsetPos);
+        isMoving = true;
+        isInOffsetPosition = true;
+        moveTimer.reset();
+    }
+
+    /**
+     * Remove offset to bring ball back to shooter position for firing.
+     * Call this AFTER shooter reaches target RPM.
+     */
+    public void removeShooterOffset() {
+        if (!isInOffsetPosition) return;  // Not offset
+
+        setServoPosition(baseShooterServoPos);
+        isMoving = true;
+        isInOffsetPosition = false;
+        moveTimer.reset();
+    }
+
+    /**
+     * Check if spindexer is in offset position
+     */
+    public boolean isInOffsetPosition() {
+        return isInOffsetPosition;
+    }
+
+    /**
+     * Reset offset state (call when starting a new shooting sequence)
+     */
+    public void resetOffsetState() {
+        isInOffsetPosition = false;
+        baseShooterServoPos = 0;
+    }
 
     // ===== HOMING =====
 
