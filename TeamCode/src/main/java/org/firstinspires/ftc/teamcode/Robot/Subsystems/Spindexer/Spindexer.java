@@ -5,6 +5,7 @@ import androidx.annotation.NonNull;
 import com.qualcomm.robotcore.hardware.ColorRangeSensor;
 import com.qualcomm.robotcore.hardware.DigitalChannel;
 import com.qualcomm.robotcore.hardware.NormalizedRGBA;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.SwitchableLight;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
@@ -13,7 +14,7 @@ import dev.nextftc.core.commands.utility.NullCommand;
 import dev.nextftc.core.components.SubsystemComponent;
 import dev.nextftc.core.subsystems.Subsystem;
 import dev.nextftc.ftc.ActiveOpMode;
-import dev.nextftc.hardware.impl.MotorEx;
+// import dev.nextftc.hardware.impl.MotorEx;  // COMMENTED OUT - Using servos instead
 
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants;
@@ -23,6 +24,7 @@ import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants.Bal
  * Spindexer (Spinning Indexer) Subsystem
  *
  * A rotating indexer that holds 3 balls with 6 preset positions.
+ * Supports both servo-based (3 servos in gearbox) and motor-based control.
  * Uses a magnetic limit switch for homing and 2 color sensors for ball detection.
  * Tracks ball colors (GREEN or PURPLE) for automatic color sorting with AprilTags.
  *
@@ -35,8 +37,16 @@ public class Spindexer implements Subsystem {
 
     public static final Spindexer INSTANCE = new Spindexer();
 
-    // Hardware
-    private MotorEx motor;
+    // Hardware - Motor mode (legacy) - COMMENTED OUT, using servos instead
+    // private MotorEx motor;
+
+    // Hardware - Servo mode (3 servos in gearbox)
+    private Servo servo1;
+    private Servo servo2;
+    private Servo servo3;
+    // private boolean useServos = SpindexerConstants.USE_SERVOS;  // Always using servos now
+
+    // Hardware - Common
     private DigitalChannel limitSwitch;
     private ColorRangeSensor colorSensor1;
     private ColorRangeSensor colorSensor2;
@@ -57,40 +67,82 @@ public class Spindexer implements Subsystem {
     private int lastDetectedGreen = 0;
     private int lastDetectedBlue = 0;
 
-    // Control state
-    private boolean hasTarget = false;         // Position control active?
-    private double targetTicks = 0;            // Target encoder position
-    private double currentPower = 0;
-    private double encoderOffset = 0;          // Virtual encoder reset offset
+    // Control state - MOTOR MODE COMMENTED OUT, using servos instead
+    // private boolean hasTarget = false;         // Position control active?
+    // private double targetTicks = 0;            // Target encoder position
+    // private double currentPower = 0;
+    // private double encoderOffset = 0;          // Virtual encoder reset offset
 
-    // PID state variables
-    private double integralSum = 0.0;          // Accumulated error for integral term
-    private double lastError = 0.0;            // Previous error for derivative term
-    private long lastPIDTime = 0;              // Last time PID was calculated
+    // PID state variables - MOTOR MODE COMMENTED OUT
+    // private double integralSum = 0.0;          // Accumulated error for integral term
+    // private double lastError = 0.0;            // Previous error for derivative term
+    // private long lastPIDTime = 0;              // Last time PID was calculated
 
-    // Shooter offset state (for mechanical clearance)
-    private boolean isInOffsetPosition = false;  // True when spindexer is offset for shooter spin-up
-    private double baseShooterTicks = 0;         // The base shooter position (before offset)
+    // Shooter offset state (for mechanical clearance) - MOTOR MODE COMMENTED OUT
+    // private boolean isInOffsetPosition = false;  // True when spindexer is offset for shooter spin-up
+    // private double baseShooterTicks = 0;         // The base shooter position (before offset)
 
     // Timing
     private ElapsedTime moveTimer = new ElapsedTime();
-    private ElapsedTime settleTimer = new ElapsedTime();
-    private boolean isSettling = false;
+    // private ElapsedTime settleTimer = new ElapsedTime();  // MOTOR MODE COMMENTED OUT
+    // private boolean isSettling = false;  // MOTOR MODE COMMENTED OUT
 
     // Default command
     private Command defaultCommand = new NullCommand();
 
     @Override
     public void initialize() {
-        // Initialize motor
-        this.motor = new MotorEx(SpindexerConstants.spindexer);
-        if (SpindexerConstants.MOTOR_INVERTED) {
-            motor.reversed();
+        // Initialize 3 servos in gearbox
+        try {
+            servo1 = ActiveOpMode.hardwareMap().get(Servo.class, SpindexerConstants.SERVO_1_NAME);
+            if (SpindexerConstants.SERVO_1_REVERSED) {
+                servo1.setDirection(Servo.Direction.REVERSE);
+            }
+        } catch (Exception e) {
+            servo1 = null;
+            ActiveOpMode.telemetry().addData("Servo1 Error", e.getMessage());
         }
-        motor.brakeMode();
-        resetEncoder();  // Virtual encoder reset
 
-        // Initialize limit switch (magnetic)
+        try {
+            servo2 = ActiveOpMode.hardwareMap().get(Servo.class, SpindexerConstants.SERVO_2_NAME);
+            if (SpindexerConstants.SERVO_2_REVERSED) {
+                servo2.setDirection(Servo.Direction.REVERSE);
+            }
+        } catch (Exception e) {
+            servo2 = null;
+            ActiveOpMode.telemetry().addData("Servo2 Error", e.getMessage());
+        }
+
+        try {
+            servo3 = ActiveOpMode.hardwareMap().get(Servo.class, SpindexerConstants.SERVO_3_NAME);
+            if (SpindexerConstants.SERVO_3_REVERSED) {
+                servo3.setDirection(Servo.Direction.REVERSE);
+            }
+        } catch (Exception e) {
+            servo3 = null;
+            ActiveOpMode.telemetry().addData("Servo3 Error", e.getMessage());
+        }
+
+        // Set initial position
+        setServoPosition(SpindexerConstants.SERVO_POSITIONS[0]);
+        isHomed = true;  // Servos don't need homing
+        // MOTOR MODE COMMENTED OUT - using servos instead
+        // } else {
+        //     // Initialize motor (legacy mode)
+        //     try {
+        //         this.motor = new MotorEx(SpindexerConstants.spindexer);
+        //         if (SpindexerConstants.MOTOR_INVERTED) {
+        //             motor.reversed();
+        //         }
+        //         motor.brakeMode();
+        //         resetEncoder();  // Virtual encoder reset
+        //     } catch (Exception e) {
+        //         this.motor = null;
+        //         ActiveOpMode.telemetry().addData("Motor Error", e.getMessage());
+        //     }
+        // }
+
+        // Initialize limit switch (magnetic) - used for motor mode homing
         try {
             this.limitSwitch = ActiveOpMode.hardwareMap()
                     .get(DigitalChannel.class, SpindexerConstants.LIMIT_SWITCH_NAME);
@@ -133,6 +185,26 @@ public class Spindexer implements Subsystem {
         }
     }
 
+    /**
+     * Set all servos to a specific position (0.0 to 1.0)
+     */
+    private void setServoPosition(double position) {
+        position = Math.max(0, Math.min(1, position));  // Clamp to valid range
+        if (servo1 != null) servo1.setPosition(position);
+        if (servo2 != null) servo2.setPosition(position);
+        if (servo3 != null) servo3.setPosition(position);
+    }
+
+    /**
+     * Get average servo position for telemetry
+     */
+    private double getServoPosition() {
+        if (servo1 != null) return servo1.getPosition();
+        if (servo2 != null) return servo2.getPosition();
+        if (servo3 != null) return servo3.getPosition();
+        return 0;
+    }
+
     @NonNull
     @Override
     public Command getDefaultCommand() {
@@ -148,60 +220,68 @@ public class Spindexer implements Subsystem {
         // Update ball detection and color from color sensors
         updateBallDetection();
 
-        // Position control loop
-        if (hasTarget && !isSettling) {
-            long currentTime = System.nanoTime();
-            double dt = lastPIDTime == 0 ? 0.02 : (currentTime - lastPIDTime) / 1e9;
-            lastPIDTime = currentTime;
-
-            double error = targetTicks - getCurrentTicks();
-
-            // Check if at position
-            if (Math.abs(error) <= SpindexerConstants.POSITION_TOLERANCE) {
-                // Start settling
-                isSettling = true;
-                settleTimer.reset();
-                setPower(0);
-                // Reset PID state
-                integralSum = 0.0;
-                lastError = 0.0;
-            } else {
-                // Full PID control
-                // Proportional term
-                double p = SpindexerConstants.kP * error;
-
-                // Integral term (with anti-windup)
-                integralSum += error * dt;
-                integralSum = Math.max(-50, Math.min(50, integralSum)); // Clamp integral
-                double i = SpindexerConstants.kI * integralSum;
-
-                // Derivative term
-                double derivative = (error - lastError) / dt;
-                double d = SpindexerConstants.kD * derivative;
-                lastError = error;
-
-                // Combine PID terms
-                double power = p + i + d;
-
-                // Add static friction compensation
-                if (Math.abs(power) > 0.01) {
-                    power += Math.signum(power) * SpindexerConstants.kS;
-                }
-
-                // Clamp power
-                power = Math.max(-SpindexerConstants.MAX_POWER,
-                        Math.min(SpindexerConstants.MAX_POWER, power));
-
-                setPower(power);
-            }
-        }
-
-        // Check settle complete
-        if (isSettling && settleTimer.milliseconds() >= SpindexerConstants.SETTLE_TIME_MS) {
-            isSettling = false;
+        // Servo mode - check if move completed (servos move immediately)
+        if (isMoving && moveTimer.milliseconds() >= SpindexerConstants.SETTLE_TIME_MS) {
             isMoving = false;
             currentPosition = targetPosition;
         }
+        // MOTOR MODE PID CONTROL COMMENTED OUT - using servos instead
+        // } else {
+        //     // Motor mode - Position control loop with PID
+        //     if (hasTarget && !isSettling) {
+        //         long currentTime = System.nanoTime();
+        //         double dt = lastPIDTime == 0 ? 0.02 : (currentTime - lastPIDTime) / 1e9;
+        //         lastPIDTime = currentTime;
+        //
+        //         double error = targetTicks - getCurrentTicks();
+        //
+        //         // Check if at position
+        //         if (Math.abs(error) <= SpindexerConstants.POSITION_TOLERANCE) {
+        //             // Start settling
+        //             isSettling = true;
+        //             settleTimer.reset();
+        //             setPower(0);
+        //             // Reset PID state
+        //             integralSum = 0.0;
+        //             lastError = 0.0;
+        //         } else {
+        //             // Full PID control
+        //             // Proportional term
+        //             double p = SpindexerConstants.kP * error;
+        //
+        //             // Integral term (with anti-windup)
+        //             integralSum += error * dt;
+        //             integralSum = Math.max(-50, Math.min(50, integralSum)); // Clamp integral
+        //             double i = SpindexerConstants.kI * integralSum;
+        //
+        //             // Derivative term
+        //             double derivative = (error - lastError) / dt;
+        //             double d = SpindexerConstants.kD * derivative;
+        //             lastError = error;
+        //
+        //             // Combine PID terms
+        //             double power = p + i + d;
+        //
+        //             // Add static friction compensation
+        //             if (Math.abs(power) > 0.01) {
+        //                 power += Math.signum(power) * SpindexerConstants.kS;
+        //             }
+        //
+        //             // Clamp power
+        //             power = Math.max(-SpindexerConstants.MAX_POWER,
+        //                     Math.min(SpindexerConstants.MAX_POWER, power));
+        //
+        //             setPower(power);
+        //         }
+        //     }
+        //
+        //     // Check settle complete
+        //     if (isSettling && settleTimer.milliseconds() >= SpindexerConstants.SETTLE_TIME_MS) {
+        //         isSettling = false;
+        //         isMoving = false;
+        //         currentPosition = targetPosition;
+        //     }
+        // }
 
         // Update telemetry
         if (SpindexerConstants.ENABLE_TELEMETRY) {
@@ -220,45 +300,63 @@ public class Spindexer implements Subsystem {
         }
 
         targetPosition = positionIndex;
-        targetTicks = SpindexerConstants.getPositionTicks(positionIndex);
 
-        // Optimize rotation direction if enabled
-        if (SpindexerConstants.OPTIMIZE_ROTATION_DIRECTION) {
-            targetTicks = optimizeTarget(targetTicks);
-        }
-
-        // Reset PID state for new target
-        integralSum = 0.0;
-        lastError = 0.0;
-        lastPIDTime = 0;
-
-        hasTarget = true;
+        // Servo mode - set position directly (always use servos now)
+        double servoPos = SpindexerConstants.SERVO_POSITIONS[positionIndex];
+        setServoPosition(servoPos);
         isMoving = true;
-        isSettling = false;
         moveTimer.reset();
+
+        // MOTOR MODE COMMENTED OUT - using servos instead
+        // if (useServos) {
+        //     // Servo mode - set position directly
+        //     double servoPos = SpindexerConstants.SERVO_POSITIONS[positionIndex];
+        //     setServoPosition(servoPos);
+        //     isMoving = true;
+        //     moveTimer.reset();
+        // } else {
+        //     // Motor mode - use encoder-based position control
+        //     targetTicks = SpindexerConstants.getPositionTicks(positionIndex);
+        //
+        //     // Optimize rotation direction if enabled
+        //     if (SpindexerConstants.OPTIMIZE_ROTATION_DIRECTION) {
+        //         targetTicks = optimizeTarget(targetTicks);
+        //     }
+        //
+        //     // Reset PID state for new target
+        //     integralSum = 0.0;
+        //     lastError = 0.0;
+        //     lastPIDTime = 0;
+        //
+        //     hasTarget = true;
+        //     isMoving = true;
+        //     isSettling = false;
+        //     moveTimer.reset();
+        // }
     }
 
-    /**
-     * Optimize target to use shortest rotation path
-     */
-    private double optimizeTarget(double target) {
-        double current = getCurrentTicks();
-        double ticksPerRev = SpindexerConstants.TICKS_PER_SPINDEXER_REV;
-
-        // Calculate forward and backward distances
-        double forwardDist = target - current;
-        if (forwardDist < 0) forwardDist += ticksPerRev;
-
-        double backwardDist = current - target;
-        if (backwardDist < 0) backwardDist += ticksPerRev;
-
-        // Choose shorter path
-        if (backwardDist < forwardDist) {
-            return current - backwardDist;
-        } else {
-            return current + forwardDist;
-        }
-    }
+    // MOTOR MODE COMMENTED OUT - optimizeTarget() uses encoder ticks
+    // /**
+    //  * Optimize target to use shortest rotation path
+    //  */
+    // private double optimizeTarget(double target) {
+    //     double current = getCurrentTicks();
+    //     double ticksPerRev = SpindexerConstants.TICKS_PER_SPINDEXER_REV;
+    //
+    //     // Calculate forward and backward distances
+    //     double forwardDist = target - current;
+    //     if (forwardDist < 0) forwardDist += ticksPerRev;
+    //
+    //     double backwardDist = current - target;
+    //     if (backwardDist < 0) backwardDist += ticksPerRev;
+    //
+    //     // Choose shorter path
+    //     if (backwardDist < forwardDist) {
+    //         return current - backwardDist;
+    //     } else {
+    //         return current + forwardDist;
+    //     }
+    // }
 
     /**
      * Move to the next intake position (empty slot)
@@ -345,80 +443,102 @@ public class Spindexer implements Subsystem {
         goToPosition(prevPos);
     }
 
-    // ===== SHOOTER CLEARANCE OFFSET =====
+    // ===== SHOOTER CLEARANCE OFFSET - MOTOR MODE COMMENTED OUT =====
 
-    /**
-     * Apply offset to move ball away from shooter wheel during spin-up.
-     * Call this BEFORE spinning up the shooter to prevent ball friction.
-     * The spindexer should already be at a shooter position.
-     */
-    public void applyShooterOffset() {
-        if (isInOffsetPosition) return;  // Already offset
+    // /**
+    //  * Apply offset to move ball away from shooter wheel during spin-up.
+    //  * Call this BEFORE spinning up the shooter to prevent ball friction.
+    //  * The spindexer should already be at a shooter position.
+    //  */
+    // public void applyShooterOffset() {
+    //     if (isInOffsetPosition) return;  // Already offset
+    //
+    //     baseShooterTicks = getCurrentTicks();
+    //     targetTicks = baseShooterTicks + SpindexerConstants.SHOOTER_CLEARANCE_OFFSET_TICKS;
+    //     hasTarget = true;
+    //     isMoving = true;
+    //     isSettling = false;
+    //     isInOffsetPosition = true;
+    //     moveTimer.reset();
+    // }
 
-        baseShooterTicks = getCurrentTicks();
-        targetTicks = baseShooterTicks + SpindexerConstants.SHOOTER_CLEARANCE_OFFSET_TICKS;
-        hasTarget = true;
-        isMoving = true;
-        isSettling = false;
-        isInOffsetPosition = true;
-        moveTimer.reset();
-    }
+    // /**
+    //  * Remove offset to bring ball back to shooter position for firing.
+    //  * Call this AFTER shooter reaches target RPM.
+    //  */
+    // public void removeShooterOffset() {
+    //     if (!isInOffsetPosition) return;  // Not offset
+    //
+    //     targetTicks = baseShooterTicks;
+    //     hasTarget = true;
+    //     isMoving = true;
+    //     isSettling = false;
+    //     isInOffsetPosition = false;
+    //     moveTimer.reset();
+    // }
 
-    /**
-     * Remove offset to bring ball back to shooter position for firing.
-     * Call this AFTER shooter reaches target RPM.
-     */
-    public void removeShooterOffset() {
-        if (!isInOffsetPosition) return;  // Not offset
+    // /**
+    //  * Check if spindexer is in offset position
+    //  */
+    // public boolean isInOffsetPosition() {
+    //     return isInOffsetPosition;
+    // }
 
-        targetTicks = baseShooterTicks;
-        hasTarget = true;
-        isMoving = true;
-        isSettling = false;
-        isInOffsetPosition = false;
-        moveTimer.reset();
-    }
-
-    /**
-     * Check if spindexer is in offset position
-     */
-    public boolean isInOffsetPosition() {
-        return isInOffsetPosition;
-    }
-
-    /**
-     * Reset offset state (call when starting a new shooting sequence)
-     */
-    public void resetOffsetState() {
-        isInOffsetPosition = false;
-        baseShooterTicks = 0;
-    }
+    // /**
+    //  * Reset offset state (call when starting a new shooting sequence)
+    //  */
+    // public void resetOffsetState() {
+    //     isInOffsetPosition = false;
+    //     baseShooterTicks = 0;
+    // }
 
     // ===== HOMING =====
 
     /**
      * Start homing routine (should be run as a command)
+     * For servos, this just goes to position 0 immediately.
      */
     public void startHoming() {
-        isHomed = false;
-        hasTarget = false;
-        setPower(-SpindexerConstants.HOMING_POWER);  // Rotate until limit switch
-        moveTimer.reset();
+        // Servos don't need homing - just go to position 0
+        goToPosition(0);
+        isHomed = true;
+
+        // MOTOR MODE COMMENTED OUT
+        // if (useServos) {
+        //     // Servos don't need homing - just go to position 0
+        //     goToPosition(0);
+        //     isHomed = true;
+        // } else {
+        //     // Motor mode - use limit switch
+        //     isHomed = false;
+        //     hasTarget = false;
+        //     setPower(-SpindexerConstants.HOMING_POWER);  // Rotate until limit switch
+        //     moveTimer.reset();
+        // }
     }
 
     /**
      * Check if limit switch is triggered (at home position)
+     * For servos, always returns true if at position 0.
      */
     public boolean isAtHome() {
-        if (limitSwitch == null) return false;
+        // Servos - just check if at position 0
+        return currentPosition == 0 && !isMoving;
 
-        boolean state = limitSwitch.getState();
-        // Apply polarity from constants
-        if (SpindexerConstants.LIMIT_SWITCH_ACTIVE_LOW) {
-            return !state;  // Active-low: triggered when state is LOW (false)
-        } else {
-            return state;   // Active-high: triggered when state is HIGH (true)
-        }
+        // MOTOR MODE COMMENTED OUT
+        // if (useServos) {
+        //     return currentPosition == 0 && !isMoving;
+        // }
+        //
+        // if (limitSwitch == null) return false;
+        //
+        // boolean state = limitSwitch.getState();
+        // // Apply polarity from constants
+        // if (SpindexerConstants.LIMIT_SWITCH_ACTIVE_LOW) {
+        //     return !state;  // Active-low: triggered when state is LOW (false)
+        // } else {
+        //     return state;   // Active-high: triggered when state is HIGH (true)
+        // }
     }
 
     /**
@@ -433,13 +553,29 @@ public class Spindexer implements Subsystem {
      * Complete homing routine
      */
     public void finishHoming() {
-        setPower(0);
-        resetEncoder();  // Virtual encoder reset
+        // Servos are already homed
         currentPosition = 0;
         targetPosition = 0;
         isHomed = true;
-        hasTarget = false;
         isMoving = false;
+
+        // MOTOR MODE COMMENTED OUT
+        // if (useServos) {
+        //     // Servos are already homed
+        //     currentPosition = 0;
+        //     targetPosition = 0;
+        //     isHomed = true;
+        //     isMoving = false;
+        // } else {
+        //     // Motor mode
+        //     setPower(0);
+        //     resetEncoder();  // Virtual encoder reset
+        //     currentPosition = 0;
+        //     targetPosition = 0;
+        //     isHomed = true;
+        //     hasTarget = false;
+        //     isMoving = false;
+        // }
     }
 
     // ===== BALL DETECTION AND COLOR =====
@@ -565,8 +701,12 @@ public class Spindexer implements Subsystem {
      * Check if at target position
      */
     public boolean atPosition() {
-        if (!hasTarget) return true;
-        return !isMoving && !isSettling;
+        // Servo mode - just check if not moving
+        return !isMoving;
+
+        // MOTOR MODE COMMENTED OUT
+        // if (!hasTarget) return true;
+        // return !isMoving && !isSettling;
     }
 
     /**
@@ -672,24 +812,40 @@ public class Spindexer implements Subsystem {
 
     /**
      * Get current encoder ticks (adjusted for virtual reset)
+     * In servo mode, returns position equivalent based on servo position.
      */
     public double getCurrentTicks() {
-        return motor.getCurrentPosition() - encoderOffset;
+        // Servo mode - convert servo position to equivalent ticks
+        return getServoPosition() * SpindexerConstants.TICKS_PER_SPINDEXER_REV;
+
+        // MOTOR MODE COMMENTED OUT
+        // if (useServos) {
+        //     // Convert servo position to equivalent ticks
+        //     return getServoPosition() * SpindexerConstants.TICKS_PER_SPINDEXER_REV;
+        // }
+        // if (motor == null) return 0;
+        // return motor.getCurrentPosition() - encoderOffset;
     }
 
-    /**
-     * Virtual encoder reset - stores current position as offset
-     */
-    private void resetEncoder() {
-        encoderOffset = motor.getCurrentPosition();
-    }
+    // MOTOR MODE COMMENTED OUT - resetEncoder() uses motor
+    // /**
+    //  * Virtual encoder reset - stores current position as offset
+    //  */
+    // private void resetEncoder() {
+    //     if (motor != null && !useServos) {
+    //         encoderOffset = motor.getCurrentPosition();
+    //     }
+    // }
 
-    /**
-     * Get current motor velocity
-     */
-    public double getVelocity() {
-        return motor.getVelocity();
-    }
+    // MOTOR MODE COMMENTED OUT - getVelocity() uses motor
+    // /**
+    //  * Get current motor velocity
+    //  * In servo mode, returns 0 (servos don't report velocity).
+    //  */
+    // public double getVelocity() {
+    //     if (useServos || motor == null) return 0;
+    //     return motor.getVelocity();
+    // }
 
     /**
      * Get the last detected color (from most recent ball intake)
@@ -700,31 +856,59 @@ public class Spindexer implements Subsystem {
 
     // ===== LOW-LEVEL CONTROL =====
 
-    /**
-     * Set motor power directly (for manual control or homing)
-     */
-    public void setPower(double power) {
-        this.currentPower = power;
-        motor.setPower(power);
-    }
+    // MOTOR MODE COMMENTED OUT - setPower() uses motor
+    // /**
+    //  * Set motor power directly (for manual control or homing)
+    //  * Only works in motor mode.
+    //  */
+    // public void setPower(double power) {
+    //     if (useServos) return;  // Servos don't support power control
+    //     if (motor == null) return;
+    //     this.currentPower = power;
+    //     motor.setPower(power);
+    // }
 
     /**
      * Stop the spindexer
      */
     public void stop() {
-        hasTarget = false;
         isMoving = false;
-        isSettling = false;
-        setPower(0);
+        // Servos hold their position automatically
+
+        // MOTOR MODE COMMENTED OUT
+        // hasTarget = false;
+        // isMoving = false;
+        // isSettling = false;
+        // if (!useServos) {
+        //     setPower(0);
+        // }
     }
 
     /**
      * Manual spin (for testing or clearing jams)
+     * In servo mode, this adjusts the servo position incrementally.
      */
     public void spin(double power) {
-        hasTarget = false;
-        isMoving = false;
-        setPower(power);
+        // Servo mode - use power as a position delta
+        if (Math.abs(power) > 0.1) {
+            double currentPos = getServoPosition();
+            double delta = power * 0.01;  // Small increment per loop
+            setServoPosition(currentPos + delta);
+        }
+
+        // MOTOR MODE COMMENTED OUT
+        // if (useServos) {
+        //     // In servo mode, use power as a position delta
+        //     if (Math.abs(power) > 0.1) {
+        //         double currentPos = getServoPosition();
+        //         double delta = power * 0.01;  // Small increment per loop
+        //         setServoPosition(currentPos + delta);
+        //     }
+        // } else {
+        //     hasTarget = false;
+        //     isMoving = false;
+        //     setPower(power);
+        // }
     }
 
     // ===== TELEMETRY =====

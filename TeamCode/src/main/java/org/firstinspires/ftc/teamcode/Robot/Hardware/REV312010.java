@@ -9,6 +9,9 @@ public class REV312010 {
 
     private final DigitalChannel[] redLEDs;
     private final DigitalChannel[] greenLEDs;
+    private boolean initialized = false;
+    private int redCount = 0;
+    private int greenCount = 0;
 
     public enum LEDState{
         kGREEN, kRED, kAMBER, kOFF
@@ -29,6 +32,7 @@ public class REV312010 {
                 String redName = (i == 0) ? "red" : "red" + (i + 1);
                 redLEDs[i] = map.get(DigitalChannel.class, redName);
                 redLEDs[i].setMode(DigitalChannel.Mode.OUTPUT);
+                redCount++;
             } catch (Exception e) {
                 redLEDs[i] = null; // LED not configured
             }
@@ -37,12 +41,38 @@ public class REV312010 {
                 String greenName = (i == 0) ? "green" : "green" + (i + 1);
                 greenLEDs[i] = map.get(DigitalChannel.class, greenName);
                 greenLEDs[i].setMode(DigitalChannel.Mode.OUTPUT);
+                greenCount++;
             } catch (Exception e) {
                 greenLEDs[i] = null; // LED not configured
             }
         }
 
+        initialized = (redCount > 0 || greenCount > 0);
         this.currentState = LEDState.kOFF;
+
+        // Log initialization status
+        ActiveOpMode.telemetry().addData("LED Init", "Red: %d, Green: %d", redCount, greenCount);
+    }
+
+    /**
+     * Check if any LEDs were successfully initialized
+     */
+    public boolean isInitialized() {
+        return initialized;
+    }
+
+    /**
+     * Get count of initialized red LEDs
+     */
+    public int getRedCount() {
+        return redCount;
+    }
+
+    /**
+     * Get count of initialized green LEDs
+     */
+    public int getGreenCount() {
+        return greenCount;
     }
 
     public void set(LEDState state){
