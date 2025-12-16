@@ -104,9 +104,19 @@ public class ShooterCommands {
      * Auto-rev shooter based on vision distance
      */
     public static Command autoRevShooter(Shooter shooter, SuperChassis chassis) {
+        return autoRevShooter(shooter, chassis, null);
+    }
+
+    /**
+     * Auto-rev shooter based on vision distance with feedback
+     */
+    public static Command autoRevShooter(Shooter shooter, SuperChassis chassis, RobotFeedback feedback) {
+        final boolean[] hasNotifiedReady = {false};
+
         return new LambdaCommand()
                 .named("autoRevShooter")
                 .requires(shooter)
+                .setStart(() -> hasNotifiedReady[0] = false)
                 .setUpdate(() -> {
                     double distance = chassis.getDistanceToTag();
                     double targetRPM = VisionConstants.BASE_RPM + (distance * VisionConstants.RPM_PER_INCH);
@@ -117,10 +127,27 @@ public class ShooterCommands {
                     double targetTPS = ShooterConstants.rpmToTicksPerSecond(targetRPM);
                     shooter.toVelocity(targetTPS);
 
+                    // Trigger feedback once when RPM is reached
+                    if (shooter.atSetpoint() && !hasNotifiedReady[0]) {
+                        if (feedback != null) {
+                            feedback.onShooterAtRPM();
+                        }
+                        hasNotifiedReady[0] = true;
+                    }
+                    // Reset notification if we drop well below setpoint (optional, but good for re-revving)
+                    else if (!shooter.atSetpoint() && hasNotifiedReady[0]) {
+                        // Debounce/hysteresis could be added here
+                    }
+
                     dev.nextftc.ftc.ActiveOpMode.telemetry().addData("AutoAim Dist", "%.1f in", distance);
                     dev.nextftc.ftc.ActiveOpMode.telemetry().addData("AutoAim RPM", "%.0f", targetRPM);
                 })
-                .setStop(interrupted -> shooter.stop())
+                .setStop(interrupted -> {
+                    shooter.stop();
+                    if (feedback != null) {
+                        feedback.onShooterStop();
+                    }
+                })
                 .setIsDone(() -> false)
                 .setInterruptible(true);
     }
@@ -169,7 +196,7 @@ public class ShooterCommands {
     public static Command shootAllBallsAutoAim(Shooter shooter, Spindexer spindexer, Intake intake,
                                                 SuperChassis chassis, RobotFeedback feedback) {
         return new ParallelGroup(
-                autoRevShooter(shooter, chassis),
+                autoRevShooter(shooter, chassis, feedback),
                 SpindexerCommands.smartFeedWithSpindexer(shooter, spindexer, intake, feedback)
         );
     }
@@ -190,7 +217,7 @@ public class ShooterCommands {
     public static Command teleopShootAutoAim(Shooter shooter, Spindexer spindexer, Intake intake,
                                               SuperChassis chassis, RobotFeedback feedback) {
         return new ParallelGroup(
-                autoRevShooter(shooter, chassis),
+                autoRevShooter(shooter, chassis, feedback),
                 SpindexerCommands.smartFeedWithSpindexerContinuous(shooter, spindexer, intake, feedback)
         );
     }
@@ -267,7 +294,7 @@ public class ShooterCommands {
                                                            Intake intake, SuperChassis chassis,
                                                            RobotFeedback feedback) {
         return new ParallelGroup(
-                autoRevShooter(shooter, chassis),
+                autoRevShooter(shooter, chassis, feedback),
                 SpindexerCommands.smartFeedColorSorted(shooter, spindexer, intake, chassis, feedback)
         );
     }
@@ -305,7 +332,7 @@ public class ShooterCommands {
                                                          Intake intake, SuperChassis chassis,
                                                          RobotFeedback feedback) {
         return new ParallelGroup(
-                autoRevShooter(shooter, chassis),
+                autoRevShooter(shooter, chassis, feedback),
                 SpindexerCommands.smartFeedColorSortedContinuous(shooter, spindexer, intake, chassis, feedback)
         );
     }

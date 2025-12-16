@@ -122,7 +122,8 @@ public class IntakeCommands {
                     intake.MoveIn(intakeSpeed);
 
                     // Check for ball detection when at intake position
-                    if (spindexer.atPosition() && spindexer.isAtIntakePosition()) {
+                    // Relaxed atPosition() check to match Spindexer behavior
+                    if (spindexer.isAtIntakePosition()) {
                         // Force check for ball at current position
                         spindexer.forceCheckBall();
 
