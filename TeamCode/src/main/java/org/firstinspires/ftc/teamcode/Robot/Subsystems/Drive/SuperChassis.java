@@ -282,34 +282,33 @@ public class SuperChassis implements Subsystem {
             // Follower or gyro not ready
         }
     }
-    // Cached motor references for direct control (avoids Pedro's internal state machine)
-    private com.qualcomm.robotcore.hardware.DcMotorEx flMotor, frMotor, blMotor, brMotor;
+    // Cached motor references for direct control using NextFTC MotorEx
+    private dev.nextftc.hardware.impl.MotorEx flMotor, frMotor, blMotor, brMotor;
     private boolean motorsInitialized = false;
 
     /**
-     * Initialize direct motor references for smooth teleop control.
+     * Initialize direct motor references for smooth teleop control using NextFTC MotorEx.
      * This bypasses Pedro's internal state machine which can cause pulsing.
      */
     private void initializeMotors() {
         if (motorsInitialized) return;
         try {
-            com.qualcomm.robotcore.hardware.HardwareMap hwMap = ActiveOpMode.hardwareMap();
-            flMotor = hwMap.get(com.qualcomm.robotcore.hardware.DcMotorEx.class, ChassisConstants.flName);
-            frMotor = hwMap.get(com.qualcomm.robotcore.hardware.DcMotorEx.class, ChassisConstants.frName);
-            blMotor = hwMap.get(com.qualcomm.robotcore.hardware.DcMotorEx.class, ChassisConstants.blName);
-            brMotor = hwMap.get(com.qualcomm.robotcore.hardware.DcMotorEx.class, ChassisConstants.brName);
+            // Use NextFTC's MotorEx for consistent API
+            flMotor = new dev.nextftc.hardware.impl.MotorEx(ChassisConstants.flName);
+            frMotor = new dev.nextftc.hardware.impl.MotorEx(ChassisConstants.frName);
+            blMotor = new dev.nextftc.hardware.impl.MotorEx(ChassisConstants.blName);
+            brMotor = new dev.nextftc.hardware.impl.MotorEx(ChassisConstants.brName);
 
-            // Set motor directions to match ChassisConstants
-            flMotor.setDirection(com.qualcomm.robotcore.hardware.DcMotorSimple.Direction.REVERSE);
-            frMotor.setDirection(com.qualcomm.robotcore.hardware.DcMotorSimple.Direction.REVERSE);
-            blMotor.setDirection(com.qualcomm.robotcore.hardware.DcMotorSimple.Direction.FORWARD);
-            brMotor.setDirection(com.qualcomm.robotcore.hardware.DcMotorSimple.Direction.FORWARD);
+            // Set motor directions to match ChassisConstants (GoBilda Strafer V5)
+            flMotor.reversed();  // FL: REVERSE
+            frMotor.reversed();  // FR: REVERSE
+            // BL and BR are forward by default
 
-            // Set zero power behavior
-            flMotor.setZeroPowerBehavior(com.qualcomm.robotcore.hardware.DcMotor.ZeroPowerBehavior.BRAKE);
-            frMotor.setZeroPowerBehavior(com.qualcomm.robotcore.hardware.DcMotor.ZeroPowerBehavior.BRAKE);
-            blMotor.setZeroPowerBehavior(com.qualcomm.robotcore.hardware.DcMotor.ZeroPowerBehavior.BRAKE);
-            brMotor.setZeroPowerBehavior(com.qualcomm.robotcore.hardware.DcMotor.ZeroPowerBehavior.BRAKE);
+            // Set brake mode for all motors
+            flMotor.brakeMode();
+            frMotor.brakeMode();
+            blMotor.brakeMode();
+            brMotor.brakeMode();
 
             motorsInitialized = true;
         } catch (Exception e) {
@@ -320,7 +319,7 @@ public class SuperChassis implements Subsystem {
     /**
      * True holonomic mecanum drive with all axes working together.
      * Implements proper mecanum math for simultaneous driving, strafing, and turning.
-     * Uses direct motor control to avoid Pedro's internal state machine pulsing.
+     * Uses NextFTC MotorEx for direct motor control to avoid Pedro's internal state machine pulsing.
      * @param forward Forward/backward movement (-1 to 1)
      * @param strafe Left/right movement (-1 to 1)
      * @param turn Rotation movement (-1 to 1)
@@ -377,7 +376,7 @@ public class SuperChassis implements Subsystem {
             bl *= scale;
             br *= scale;
 
-            // Direct motor control - bypasses Pedro's internal state machine
+            // Direct motor control using NextFTC MotorEx
             flMotor.setPower(fl);
             frMotor.setPower(fr);
             blMotor.setPower(bl);
@@ -387,6 +386,7 @@ public class SuperChassis implements Subsystem {
             ActiveOpMode.telemetry().addData("Holonomic Drive Error", e.getMessage());
         }
     }
+
     public void stop() {
         try {
             initializeMotors();
@@ -397,7 +397,7 @@ public class SuperChassis implements Subsystem {
                 brMotor.setPower(0);
             }
         } catch (Exception e) {
-            dev.nextftc.ftc.ActiveOpMode.telemetry().addData("SUPERCHASSIS ERROR", e.getMessage());
+            ActiveOpMode.telemetry().addData("SUPERCHASSIS ERROR", e.getMessage());
         }
     }
 
