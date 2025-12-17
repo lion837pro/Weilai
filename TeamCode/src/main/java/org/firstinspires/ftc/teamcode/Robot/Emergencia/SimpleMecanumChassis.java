@@ -48,10 +48,10 @@ public class SimpleMecanumChassis implements Subsystem {
         backLeft = ActiveOpMode.hardwareMap().get(DcMotor.class, BL_MOTOR);
         backRight = ActiveOpMode.hardwareMap().get(DcMotor.class, BR_MOTOR);
 
-        // Set motor directions (adjust these based on your robot)
-        frontLeft.setDirection(DcMotorSimple.Direction.FORWARD);
-        frontRight.setDirection(DcMotorSimple.Direction.FORWARD);
-        backLeft.setDirection(DcMotorSimple.Direction.REVERSE);
+        // Set motor directions to match ChassisConstants (GoBilda Strafer V5)
+        frontLeft.setDirection(DcMotorSimple.Direction.REVERSE);
+        frontRight.setDirection(DcMotorSimple.Direction.REVERSE);
+        backLeft.setDirection(DcMotorSimple.Direction.FORWARD);
         backRight.setDirection(DcMotorSimple.Direction.FORWARD);
 
         // Set zero power behavior

@@ -341,8 +341,9 @@ public class SuperChassis implements Subsystem {
                 double cosH = Math.cos(-heading);
                 double sinH = Math.sin(-heading);
 
-                rotatedForward = strafe * sinH + forward * cosH;
+                // Correct field-centric transformation (matches SimpleMecanumChassis)
                 rotatedStrafe = strafe * cosH - forward * sinH;
+                rotatedForward = strafe * sinH + forward * cosH;
             }
 
             // Mecanum drive math - all three axes combined (true holonomic)

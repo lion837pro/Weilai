@@ -103,7 +103,7 @@ public class TeleopMode extends NextFTCOpMode {
 
         // Vision controls
         left_bumper.whenBecomesTrue(DriveCommands.alignWithJoysticks(chassis,
-                () -> -gamepad1.left_stick_y, () -> gamepad1.left_stick_x));
+                () -> -gamepad1.left_stick_y, () -> -gamepad1.left_stick_x));
         left_bumper.whenBecomesFalse(DriveCommands.stop(chassis));
 
         // Spindexer manual controls
@@ -111,11 +111,11 @@ public class TeleopMode extends NextFTCOpMode {
 
         // Default commands (field-oriented drive)
         // Forward: -Y (gamepad Y-axis is inverted)
-        // Strafe: X (gamepad X-axis is normal)
-        // Turn: X (gamepad X-axis is normal)
+        // Strafe: -X (gamepad X-axis is inverted for correct direction)
+        // Turn: -X (gamepad X-axis is inverted for correct rotation)
         chassis.setDefaultCommand(DriveCommands.runWithJoysticks(chassis,
-                () -> -gamepad1.left_stick_y, () -> gamepad1.left_stick_x,
-                () -> gamepad1.right_stick_x, false));
+                () -> -gamepad1.left_stick_y, () -> -gamepad1.left_stick_x,
+                () -> -gamepad1.right_stick_x, false));
         shooter.setDefaultCommand(ShooterCommands.runManualShooter(shooter,
                 () -> gamepad1.right_trigger));
         spindexer.setDefaultCommand(SpindexerCommands.manualSpin(spindexer,
