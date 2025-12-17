@@ -300,15 +300,17 @@ public class SuperChassis implements Subsystem {
             brMotor = new dev.nextftc.hardware.impl.MotorEx(ChassisConstants.brName);
 
             // Set motor directions to match ChassisConstants (GoBilda Strafer V5)
-            flMotor.reversed();  // FL: REVERSE
-            frMotor.reversed();  // FR: REVERSE
-            // BL and BR are forward by default
+            // Use the underlying DcMotor's setDirection method for proper configuration
+            flMotor.getMotor().setDirection(ChassisConstants.driveConstants.leftFrontMotorDirection);
+            frMotor.getMotor().setDirection(ChassisConstants.driveConstants.rightFrontMotorDirection);
+            blMotor.getMotor().setDirection(ChassisConstants.driveConstants.leftRearMotorDirection);
+            brMotor.getMotor().setDirection(ChassisConstants.driveConstants.rightRearMotorDirection);
 
-            // Set brake mode for all motors
-            flMotor.brakeMode();
-            frMotor.brakeMode();
-            blMotor.brakeMode();
-            brMotor.brakeMode();
+            // Set FLOAT mode for smoother driving (matches SimpleMecanumChassis)
+            flMotor.setZeroPowerBehavior(com.qualcomm.robotcore.hardware.DcMotor.ZeroPowerBehavior.FLOAT);
+            frMotor.setZeroPowerBehavior(com.qualcomm.robotcore.hardware.DcMotor.ZeroPowerBehavior.FLOAT);
+            blMotor.setZeroPowerBehavior(com.qualcomm.robotcore.hardware.DcMotor.ZeroPowerBehavior.FLOAT);
+            brMotor.setZeroPowerBehavior(com.qualcomm.robotcore.hardware.DcMotor.ZeroPowerBehavior.FLOAT);
 
             motorsInitialized = true;
         } catch (Exception e) {
@@ -330,6 +332,9 @@ public class SuperChassis implements Subsystem {
             initializeMotors();
             if (!motorsInitialized) return;
 
+            // Invert strafe for correct direction (matches SimpleMecanumChassis)
+            strafe = -strafe;
+
             // Field-oriented control: rotate inputs by robot heading
             double rotatedForward = forward;
             double rotatedStrafe = strafe;
@@ -341,8 +346,9 @@ public class SuperChassis implements Subsystem {
                 double cosH = Math.cos(-heading);
                 double sinH = Math.sin(-heading);
 
-                rotatedForward = strafe * sinH + forward * cosH;
+                // Correct field-centric transformation (matches SimpleMecanumChassis)
                 rotatedStrafe = strafe * cosH - forward * sinH;
+                rotatedForward = strafe * sinH + forward * cosH;
             }
 
             // Mecanum drive math - all three axes combined (true holonomic)
