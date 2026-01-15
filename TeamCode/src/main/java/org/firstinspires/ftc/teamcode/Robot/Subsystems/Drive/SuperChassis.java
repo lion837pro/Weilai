@@ -491,6 +491,16 @@ public class SuperChassis implements Subsystem {
         }
     }
 
+    // ===== ROBOT POSE =====
+
+    /**
+     * Get the current robot pose from odometry.
+     * Used for odometry-based turret targeting.
+     */
+    public Pose getRobotPose() {
+        return robotPose;
+    }
+
     // ===== CONDITIONAL ODOMETRY UPDATES =====
 
     /**

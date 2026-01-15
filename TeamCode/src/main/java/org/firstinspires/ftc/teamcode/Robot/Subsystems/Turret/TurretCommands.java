@@ -246,4 +246,102 @@ public class TurretCommands {
                 .setIsDone(() -> turret.isAligned())
                 .setInterruptible(true);
     }
+
+    // ===== ODOMETRY-BASED TARGETING =====
+
+    /**
+     * Target a fixed field position using odometry.
+     * Turret will continuously track the target as the robot moves.
+     * Uses robot pose from chassis odometry.
+     *
+     * @param turret The turret subsystem
+     * @param chassis The chassis (provides robot pose from odometry)
+     * @param targetX Target X position on field (inches)
+     * @param targetY Target Y position on field (inches)
+     */
+    public static Command targetFieldPosition(Turret turret, SuperChassis chassis,
+                                               double targetX, double targetY) {
+        return new LambdaCommand()
+                .named("TurretOdometryTarget")
+                .requires(turret)
+                .setStart(() -> {
+                    turret.startOdometryTargeting();
+                })
+                .setUpdate(() -> {
+                    // Get robot pose from chassis odometry
+                    double robotX = chassis.getRobotPose().getX();
+                    double robotY = chassis.getRobotPose().getY();
+                    double robotHeading = Math.toDegrees(chassis.getAngle().inRad);
+
+                    // Update turret target
+                    turret.setOdometryTarget(robotX, robotY, robotHeading, targetX, targetY);
+                })
+                .setStop(interrupted -> {
+                    turret.stopOdometryTargeting();
+                })
+                .setIsDone(() -> false)  // Run until interrupted
+                .setInterruptible(true);
+    }
+
+    /**
+     * Hybrid auto-align: Uses Limelight when target visible, falls back to odometry.
+     * Best of both worlds - precise vision alignment when possible,
+     * predictive odometry tracking when vision is unavailable.
+     *
+     * @param turret The turret subsystem
+     * @param chassis The chassis (provides Limelight data and odometry)
+     * @param fallbackTargetX Field X to target when no vision (inches)
+     * @param fallbackTargetY Field Y to target when no vision (inches)
+     */
+    public static Command hybridAutoAlign(Turret turret, SuperChassis chassis,
+                                           double fallbackTargetX, double fallbackTargetY) {
+        final boolean[] usingVision = {false};
+
+        return new LambdaCommand()
+                .named("TurretHybridAlign")
+                .requires(turret)
+                .setStart(() -> {
+                    usingVision[0] = false;
+                })
+                .setUpdate(() -> {
+                    boolean hasVisionTarget = chassis.isLLConnected() &&
+                            VisionConstants.isAlignmentTag(chassis.getLastDetectedId());
+
+                    if (hasVisionTarget) {
+                        // Switch to vision mode if not already
+                        if (!usingVision[0] || turret.isOdometryTargeting()) {
+                            turret.stopOdometryTargeting();
+                            turret.startAutoAlign();
+                            usingVision[0] = true;
+                        }
+                        // Use Limelight tx for alignment
+                        double tx = chassis.getLLTx();
+                        turret.setAlignmentError(tx);
+
+                        dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Turret Mode", "VISION");
+                    } else {
+                        // Switch to odometry mode if not already
+                        if (usingVision[0] || turret.isAutoAligning()) {
+                            turret.stopAutoAlign();
+                            turret.startOdometryTargeting();
+                            usingVision[0] = false;
+                        }
+                        // Use odometry for targeting
+                        double robotX = chassis.getRobotPose().getX();
+                        double robotY = chassis.getRobotPose().getY();
+                        double robotHeading = Math.toDegrees(chassis.getAngle().inRad);
+                        turret.setOdometryTarget(robotX, robotY, robotHeading,
+                                fallbackTargetX, fallbackTargetY);
+
+                        dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Turret Mode", "ODOMETRY");
+                    }
+                })
+                .setStop(interrupted -> {
+                    turret.stopAutoAlign();
+                    turret.stopOdometryTargeting();
+                    turret.stop();
+                })
+                .setIsDone(() -> false)
+                .setInterruptible(true);
+    }
 }

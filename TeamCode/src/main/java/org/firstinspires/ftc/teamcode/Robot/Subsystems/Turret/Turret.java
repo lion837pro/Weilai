@@ -16,7 +16,7 @@ import dev.nextftc.hardware.impl.MotorEx;
  *
  * A rotating turret that aims the shooter at targets.
  * Uses a single motor with 8:1 gear ratio for precise positioning.
- * Supports both position control and vision-based auto-alignment.
+ * Supports position control, vision-based auto-alignment, and odometry-based targeting.
  */
 public class Turret implements Subsystem {
 
@@ -30,6 +30,7 @@ public class Turret implements Subsystem {
     private double targetAngle = 0;           // Target angle in degrees
     private boolean hasTarget = false;        // Position control active?
     private boolean isAligning = false;       // Vision alignment active?
+    private boolean isOdometryTargeting = false; // Odometry-based targeting active?
 
     // Control state
     private double targetTicks = 0;           // Target encoder position
@@ -43,6 +44,10 @@ public class Turret implements Subsystem {
     // Alignment state (for vision-based auto-align)
     private double alignError = 0;            // Error from vision (tx)
     private double lastAlignError = 0;
+
+    // Odometry targeting state
+    private double odometryTargetAngle = 0;   // Target angle from odometry calculation
+    private double robotHeading = 0;          // Current robot heading from odometry
 
     // Timing
     private ElapsedTime moveTimer = new ElapsedTime();
@@ -83,14 +88,19 @@ public class Turret implements Subsystem {
         // Update current angle from encoder
         currentAngle = TurretConstants.ticksToDegrees(getCurrentTicks());
 
-        // Position control loop
-        if (hasTarget && !isAligning) {
+        // Position control loop (manual go-to-angle)
+        if (hasTarget && !isAligning && !isOdometryTargeting) {
             runPositionPID();
         }
 
-        // Vision alignment loop (separate from position control)
+        // Vision alignment loop (Limelight-based)
         if (isAligning) {
             runAlignmentPID();
+        }
+
+        // Odometry targeting loop (field position-based)
+        if (isOdometryTargeting) {
+            runOdometryPID();
         }
 
         // Update telemetry
@@ -249,6 +259,127 @@ public class Turret implements Subsystem {
         setPower(power);
     }
 
+    // ===== ODOMETRY-BASED TARGETING =====
+
+    /**
+     * Start odometry-based targeting.
+     * Call setOdometryTarget() with robot position and target position each loop.
+     * The turret will calculate the required angle to face the target.
+     */
+    public void startOdometryTargeting() {
+        isOdometryTargeting = true;
+        isAligning = false;
+        hasTarget = false;
+        lastError = 0;
+    }
+
+    /**
+     * Stop odometry-based targeting
+     */
+    public void stopOdometryTargeting() {
+        isOdometryTargeting = false;
+        setPower(0);
+    }
+
+    /**
+     * Set odometry target using robot pose and target field position.
+     * Calculates the required turret angle to face the target.
+     *
+     * @param robotX Robot X position on field (inches)
+     * @param robotY Robot Y position on field (inches)
+     * @param robotHeadingDeg Robot heading in degrees (0 = facing positive X)
+     * @param targetX Target X position on field (inches)
+     * @param targetY Target Y position on field (inches)
+     */
+    public void setOdometryTarget(double robotX, double robotY, double robotHeadingDeg,
+                                   double targetX, double targetY) {
+        this.robotHeading = robotHeadingDeg;
+
+        // Calculate angle from robot to target in field coordinates
+        double dx = targetX - robotX;
+        double dy = targetY - robotY;
+
+        // Angle to target in field frame (degrees, 0 = positive X axis)
+        double fieldAngleToTarget = Math.toDegrees(Math.atan2(dy, dx));
+
+        // Convert to turret angle (relative to robot heading)
+        // Turret angle = field angle to target - robot heading
+        odometryTargetAngle = fieldAngleToTarget - robotHeadingDeg;
+
+        // Normalize to -180 to 180
+        while (odometryTargetAngle > 180) odometryTargetAngle -= 360;
+        while (odometryTargetAngle < -180) odometryTargetAngle += 360;
+
+        // Clamp to turret limits
+        odometryTargetAngle = TurretConstants.clampAngle(odometryTargetAngle);
+    }
+
+    /**
+     * Odometry targeting PID control loop
+     */
+    private void runOdometryPID() {
+        // Error is difference between current angle and target angle
+        double error = odometryTargetAngle - currentAngle;
+
+        // Normalize error to -180 to 180
+        while (error > 180) error -= 360;
+        while (error < -180) error += 360;
+
+        // Check if aligned (within deadband)
+        if (Math.abs(error) <= TurretConstants.ALIGN_DEADBAND) {
+            setPower(0);
+            return;
+        }
+
+        // PD control
+        double p = TurretConstants.ALIGN_kP * error;
+        double derivative = error - lastAlignError;
+        double d = TurretConstants.ALIGN_kD * derivative;
+        lastAlignError = error;
+
+        double power = p + d;
+
+        // Add static friction compensation
+        if (Math.abs(power) > 0.01) {
+            power += Math.signum(power) * TurretConstants.kS;
+        }
+
+        // Clamp power
+        power = Math.max(-TurretConstants.MAX_POWER,
+                Math.min(TurretConstants.MAX_POWER, power));
+
+        // Check soft limits
+        double currentTicks = getCurrentTicks();
+        if ((currentTicks >= TurretConstants.MAX_TICKS && power > 0) ||
+            (currentTicks <= TurretConstants.MIN_TICKS && power < 0)) {
+            power = 0;  // Stop at limits
+        }
+
+        setPower(power);
+    }
+
+    /**
+     * Check if turret is aligned to odometry target
+     */
+    public boolean isOdometryAligned() {
+        double error = Math.abs(odometryTargetAngle - currentAngle);
+        return error <= TurretConstants.ALIGN_DEADBAND;
+    }
+
+    /**
+     * Check if odometry targeting is active
+     */
+    public boolean isOdometryTargeting() {
+        return isOdometryTargeting;
+    }
+
+    /**
+     * Get the current odometry target angle
+     */
+    public double getOdometryTargetAngle() {
+        return odometryTargetAngle;
+    }
+
     // ===== MANUAL CONTROL =====
 
     /**
@@ -277,6 +408,7 @@ public class Turret implements Subsystem {
     public void stop() {
         hasTarget = false;
         isAligning = false;
+        isOdometryTargeting = false;
         setPower(0);
     }
 
@@ -366,12 +498,23 @@ public class Turret implements Subsystem {
             ActiveOpMode.telemetry().addData("Angle", "%.1f deg", currentAngle);
             ActiveOpMode.telemetry().addData("Target", "%.1f deg", targetAngle);
             ActiveOpMode.telemetry().addData("Power", "%.2f", currentPower);
-            ActiveOpMode.telemetry().addData("Mode", hasTarget ? "Position" : (isAligning ? "Auto-Align" : "Manual"));
+
+            String mode = "Manual";
+            if (hasTarget) mode = "Position";
+            else if (isAligning) mode = "Vision";
+            else if (isOdometryTargeting) mode = "Odometry";
+            ActiveOpMode.telemetry().addData("Mode", mode);
+
             ActiveOpMode.telemetry().addData("At Position", atPosition() ? "YES" : "NO");
 
             if (isAligning) {
                 ActiveOpMode.telemetry().addData("Align Error", "%.2f deg", alignError);
                 ActiveOpMode.telemetry().addData("Aligned", isAligned() ? "YES" : "NO");
+            }
+
+            if (isOdometryTargeting) {
+                ActiveOpMode.telemetry().addData("Odom Target", "%.1f deg", odometryTargetAngle);
+                ActiveOpMode.telemetry().addData("Odom Aligned", isOdometryAligned() ? "YES" : "NO");
             }
         } catch (Exception e) {
             // Telemetry not ready
