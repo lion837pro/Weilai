@@ -501,6 +501,28 @@ public class SuperChassis implements Subsystem {
         return robotPose;
     }
 
+    /**
+     * Calculate distance from robot to a fixed field position using odometry.
+     * Used for odometry-based hood angle control.
+     *
+     * @param targetX Target X position on field (inches)
+     * @param targetY Target Y position on field (inches)
+     * @return Distance in inches
+     */
+    public double getDistanceToPosition(double targetX, double targetY) {
+        double dx = targetX - robotPose.getX();
+        double dy = targetY - robotPose.getY();
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    /**
+     * Check if Limelight has a valid target for distance measurement.
+     * Returns true if connected and seeing a valid tag.
+     */
+    public boolean hasValidDistanceTarget() {
+        return isLLConnected() && lastDetectedId != -1;
+    }
+
     // ===== CONDITIONAL ODOMETRY UPDATES =====
 
     /**

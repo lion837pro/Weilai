@@ -132,4 +132,154 @@ public class HoodCommands {
         return new InstantCommand("setHoodForDistance",
                 () -> hood.setHoodForDistance(distanceInches));
     }
+
+    // ========================================================================
+    // ODOMETRY-BASED COMMANDS
+    // ========================================================================
+
+    /**
+     * Auto-aim hood based on odometry distance to a fixed field position.
+     * Uses robot pose from odometry to calculate distance.
+     * Runs continuously until interrupted.
+     *
+     * @param hood The hood subsystem
+     * @param chassis The chassis (provides robot pose from odometry)
+     * @param targetX Target X position on field (inches)
+     * @param targetY Target Y position on field (inches)
+     */
+    public static Command autoAimOdometry(Hood hood, SuperChassis chassis,
+                                           double targetX, double targetY) {
+        return new LambdaCommand()
+                .named("HoodOdometryAim")
+                .requires(hood)
+                .setStart(() -> {})
+                .setUpdate(() -> {
+                    double distance = chassis.getDistanceToPosition(targetX, targetY);
+                    if (distance > 0) {
+                        hood.setHoodForDistance(distance);
+                    }
+
+                    dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Hood Mode", "ODOMETRY");
+                    dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Distance", "%.1f in", distance);
+                })
+                .setStop(interrupted -> {})
+                .setIsDone(() -> false)
+                .setInterruptible(true);
+    }
+
+    // ========================================================================
+    // HYBRID COMMANDS (LIMELIGHT + ODOMETRY FALLBACK)
+    // ========================================================================
+
+    /**
+     * Hybrid auto-aim: Uses Limelight distance when target visible,
+     * falls back to odometry-based distance when vision is unavailable.
+     * Best of both worlds - precise vision distance when possible,
+     * predictive odometry when vision is unavailable.
+     *
+     * @param hood The hood subsystem
+     * @param chassis The chassis (provides Limelight data and odometry)
+     * @param fallbackTargetX Field X position for odometry fallback (inches)
+     * @param fallbackTargetY Field Y position for odometry fallback (inches)
+     */
+    public static Command hybridAutoAim(Hood hood, SuperChassis chassis,
+                                         double fallbackTargetX, double fallbackTargetY) {
+        final boolean[] usingVision = {false};
+
+        return new LambdaCommand()
+                .named("HoodHybridAim")
+                .requires(hood)
+                .setStart(() -> {
+                    usingVision[0] = false;
+                })
+                .setUpdate(() -> {
+                    // Check if Limelight has a valid target
+                    boolean hasVisionTarget = chassis.hasValidDistanceTarget();
+
+                    if (hasVisionTarget) {
+                        // Use Limelight-based distance
+                        double distance = chassis.getDistanceToTag();
+                        if (distance > 0) {
+                            hood.setHoodForDistance(distance);
+                            usingVision[0] = true;
+
+                            dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Hood Mode", "VISION");
+                            dev.nextftc.ftc.ActiveOpMode.telemetry().addData("LL Distance", "%.1f in", distance);
+                        }
+                    } else {
+                        // Fallback to odometry-based distance
+                        double distance = chassis.getDistanceToPosition(fallbackTargetX, fallbackTargetY);
+                        if (distance > 0) {
+                            hood.setHoodForDistance(distance);
+                            usingVision[0] = false;
+
+                            dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Hood Mode", "ODOMETRY");
+                            dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Odom Distance", "%.1f in", distance);
+                        }
+                    }
+                })
+                .setStop(interrupted -> {})
+                .setIsDone(() -> false)
+                .setInterruptible(true);
+    }
+
+    /**
+     * Hybrid auto-aim with manual override capability.
+     * If joystick input is detected, switches to manual control.
+     * Otherwise uses vision/odometry for automatic aiming.
+     *
+     * @param hood The hood subsystem
+     * @param chassis The chassis
+     * @param manualInput Joystick/trigger input for manual override
+     * @param fallbackTargetX Field X position for odometry fallback (inches)
+     * @param fallbackTargetY Field Y position for odometry fallback (inches)
+     */
+    public static Command hybridAutoAimWithManual(Hood hood, SuperChassis chassis,
+                                                   DoubleSupplier manualInput,
+                                                   double fallbackTargetX, double fallbackTargetY) {
+        final double ADJUST_RATE = 30.0; // degrees per second at full input
+        final long[] lastTime = {System.nanoTime()};
+
+        return new LambdaCommand()
+                .named("HoodHybridManual")
+                .requires(hood)
+                .setStart(() -> lastTime[0] = System.nanoTime())
+                .setUpdate(() -> {
+                    double inputValue = manualInput.getAsDouble();
+
+                    // Check for manual override
+                    if (Math.abs(inputValue) > 0.1) {
+                        // Manual control mode
+                        long currentTime = System.nanoTime();
+                        double dt = (currentTime - lastTime[0]) / 1e9;
+                        lastTime[0] = currentTime;
+
+                        double deltaAngle = inputValue * ADJUST_RATE * dt;
+                        hood.adjustAngle(deltaAngle);
+
+                        dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Hood Mode", "MANUAL");
+                        return;
+                    }
+
+                    lastTime[0] = System.nanoTime();
+
+                    // Auto-aim mode (vision or odometry)
+                    if (chassis.hasValidDistanceTarget()) {
+                        double distance = chassis.getDistanceToTag();
+                        if (distance > 0) {
+                            hood.setHoodForDistance(distance);
+                            dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Hood Mode", "VISION");
+                        }
+                    } else {
+                        double distance = chassis.getDistanceToPosition(fallbackTargetX, fallbackTargetY);
+                        if (distance > 0) {
+                            hood.setHoodForDistance(distance);
+                            dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Hood Mode", "ODOMETRY");
+                        }
+                    }
+                })
+                .setStop(interrupted -> {})
+                .setIsDone(() -> false)
+                .setInterruptible(true);
+    }
 }
