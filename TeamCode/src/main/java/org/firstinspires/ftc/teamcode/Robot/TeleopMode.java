@@ -8,6 +8,7 @@ import org.firstinspires.ftc.teamcode.Robot.DriveCommands.DriveCommands;
 import org.firstinspires.ftc.teamcode.Robot.Hardware.REV312010;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.ChassisConstants;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.SuperChassis;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.Hood.Hood;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.Intake;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.IntakeCommands;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.LED.RobotFeedback;
@@ -15,6 +16,8 @@ import org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter.Shooter;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter.ShooterCommands;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Spindexer.Spindexer;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Spindexer.SpindexerCommands;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.Turret.Turret;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.Turret.TurretCommands;
 
 import dev.nextftc.bindings.BindingManager;
 import dev.nextftc.bindings.Button;
@@ -23,8 +26,8 @@ import dev.nextftc.ftc.NextFTCOpMode;
 
 /**
  * SINGLE DRIVER TELEOP MODE
- * Controls: A=Intake | B=Reverse | X=1600RPM | Y=1800RPM+Spindexer | RB=AutoAim(MAIN)
- *          LB=VisionAlign | RT=ManualShooter | LT=ManualSpindexer | Options=ResetHeading
+ * Controls: A=Intake | B=Reverse | X=1600RPM | Y=FixedRPM+Spindexer | RB=AutoAim+Hood(MAIN)
+ *          LB=TurretAutoAlign | RT=ManualShooter | LT=ManualSpindexer | Options=ResetHeading
  *          DpadLeft=ResetColorTag | DpadUp=ReverseShooter | DpadDown=IndexForward
  */
 @TeleOp(name = "Single Driver Mode", group = "Competition")
@@ -35,6 +38,8 @@ public class TeleopMode extends NextFTCOpMode {
     private final Intake intake = Intake.INSTANCE;
     private final Shooter shooter = Shooter.INSTANCE;
     private final Spindexer spindexer = Spindexer.INSTANCE;
+    private final Hood hood = Hood.INSTANCE;
+    private final Turret turret = Turret.INSTANCE;
     private REV312010 led;
     private RobotFeedback feedback;
 
@@ -52,6 +57,8 @@ public class TeleopMode extends NextFTCOpMode {
         addComponents(intake.asCOMPONENT());
         addComponents(shooter.asCOMPONENT());
         addComponents(spindexer.asCOMPONENT());
+        addComponents(hood.asCOMPONENT());
+        addComponents(turret.asCOMPONENT());
     }
 
     @Override
@@ -96,15 +103,16 @@ public class TeleopMode extends NextFTCOpMode {
         dpad_up.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
 
         // Full shooting sequences (PRIMARY COMPETITION CONTROLS)
-        right_bumper.whenTrue(ShooterCommands.teleopShootColorSortedAutoAim(
-                shooter, spindexer, intake, chassis, feedback));
+        // RB: Hood-based auto-aim with color sorting (MAIN SHOOTING BUTTON)
+        right_bumper.whenTrue(ShooterCommands.teleopShootColorSortedWithHood(
+                shooter, hood, spindexer, intake, chassis, feedback));
 
+        // Y: Fixed RPM shooting without hood auto-aim
         y.whenTrue(ShooterCommands.teleopShootFixedRPM(shooter, spindexer, intake, 1600, feedback));
 
-        // Vision controls
-        left_bumper.whenBecomesTrue(DriveCommands.alignWithJoysticks(chassis,
-                () -> -gamepad1.left_stick_y, () -> -gamepad1.left_stick_x));
-        left_bumper.whenBecomesFalse(DriveCommands.stop(chassis));
+        // Turret auto-align (LB) - uses Limelight to aim turret instead of chassis
+        left_bumper.whenTrue(TurretCommands.autoAlign(turret, chassis));
+        left_bumper.whenBecomesFalse(TurretCommands.stop(turret));
 
         // Spindexer manual controls
         dpad_down.whenBecomesTrue(SpindexerCommands.indexForward(spindexer));

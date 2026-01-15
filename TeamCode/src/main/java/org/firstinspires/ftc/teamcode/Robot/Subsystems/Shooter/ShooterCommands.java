@@ -2,6 +2,8 @@ package org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter;
 
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.SuperChassis;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.Hood.Hood;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.Hood.HoodConstants;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.Intake;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.LED.RobotFeedback;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Spindexer.Spindexer;
@@ -352,6 +354,95 @@ public class ShooterCommands {
         return new ParallelGroup(
                 runShooterPID(shooter, rpm, feedback),
                 SpindexerCommands.smartFeedCustomSequence(shooter, spindexer, intake, sequence, feedback)
+        );
+    }
+
+    // ========================================================================
+    // HOOD-BASED AUTO-AIM (Fixed RPM, variable hood angle)
+    // Uses hood angle for distance instead of RPM adjustment
+    // ========================================================================
+
+    /**
+     * Auto-aim using hood angle adjustment.
+     * Keeps shooter at fixed RPM and adjusts hood based on distance.
+     * This is the preferred method for accurate distance shooting.
+     */
+    public static Command autoAimWithHood(Shooter shooter, Hood hood, SuperChassis chassis) {
+        return autoAimWithHood(shooter, hood, chassis, null);
+    }
+
+    /**
+     * Auto-aim using hood with feedback
+     */
+    public static Command autoAimWithHood(Shooter shooter, Hood hood, SuperChassis chassis,
+                                           RobotFeedback feedback) {
+        final boolean[] hasNotifiedReady = {false};
+        double targetTPS = ShooterConstants.rpmToTicksPerSecond(HoodConstants.FIXED_SHOOTING_RPM);
+
+        return new LambdaCommand()
+                .named("autoAimWithHood")
+                .requires(shooter)
+                .requires(hood)
+                .setStart(() -> {
+                    hasNotifiedReady[0] = false;
+                    shooter.toVelocity(targetTPS);
+                })
+                .setUpdate(() -> {
+                    // Keep shooter at fixed RPM
+                    shooter.toVelocity(targetTPS);
+
+                    // Adjust hood based on distance
+                    double distance = chassis.getDistanceToTag();
+                    if (distance > 0) {
+                        hood.setHoodForDistance(distance);
+                    }
+
+                    // Trigger feedback once when RPM is reached
+                    if (shooter.atSetpoint() && !hasNotifiedReady[0]) {
+                        if (feedback != null) {
+                            feedback.onShooterAtRPM();
+                        }
+                        hasNotifiedReady[0] = true;
+                    }
+
+                    dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Hood Dist", "%.1f in", distance);
+                    dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Hood Angle", "%.1f deg", hood.getAngleDegrees());
+                    dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Fixed RPM", "%.0f", HoodConstants.FIXED_SHOOTING_RPM);
+                })
+                .setStop(interrupted -> {
+                    shooter.stop();
+                    if (feedback != null) {
+                        feedback.onShooterStop();
+                    }
+                })
+                .setIsDone(() -> false)
+                .setInterruptible(true);
+    }
+
+    /**
+     * TeleOp color-sorted shooting with hood-based auto-aim.
+     * Uses fixed RPM and hood angle for distance adjustment.
+     * Best option for competition with full feedback (LED + rumble).
+     */
+    public static Command teleopShootColorSortedWithHood(Shooter shooter, Hood hood, Spindexer spindexer,
+                                                          Intake intake, SuperChassis chassis,
+                                                          RobotFeedback feedback) {
+        return new ParallelGroup(
+                autoAimWithHood(shooter, hood, chassis, feedback),
+                SpindexerCommands.smartFeedColorSortedContinuous(shooter, spindexer, intake, chassis, feedback)
+        );
+    }
+
+    /**
+     * Full shooting routine with hood-based auto-aim.
+     * Shoots until all balls are fired.
+     */
+    public static Command shootAllBallsWithHood(Shooter shooter, Hood hood, Spindexer spindexer,
+                                                 Intake intake, SuperChassis chassis,
+                                                 RobotFeedback feedback) {
+        return new ParallelGroup(
+                autoAimWithHood(shooter, hood, chassis, feedback),
+                SpindexerCommands.smartFeedColorSorted(shooter, spindexer, intake, chassis, feedback)
         );
     }
 }

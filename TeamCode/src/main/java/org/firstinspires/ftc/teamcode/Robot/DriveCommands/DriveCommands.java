@@ -118,31 +118,33 @@ public class DriveCommands {
         return TurnBy(chassis, rotRads.toAngle());
     }
 
-    /**
-     * Auto-align to AprilTag (autonomous style - completes when aligned).
-     * ONLY aligns to tags 20 and 24 (alignment tags).
-     */
-    public static Command AlignByAprilTag(SuperChassis chassis){
+    // ========================================================================
+    // DEPRECATED: Chassis auto-align methods
+    // These have been replaced by TurretCommands.autoAlign() which uses
+    // the turret to align to targets instead of rotating the entire chassis.
+    // Commented out to reduce code complexity.
+    // ========================================================================
 
+    /*
+    // Auto-align to AprilTag (autonomous style - completes when aligned).
+    // ONLY aligns to tags 20 and 24 (alignment tags).
+    // DEPRECATED: Use TurretCommands.autoAlign() instead
+    public static Command AlignByAprilTag(SuperChassis chassis){
         return new LambdaCommand().
                 named("AlignByAprilTag").
                 requires(chassis).
                 setStart(()-> {}).
                 setUpdate(()-> {
                     if(chassis.isLLConnected() && chassis.getLIMELIGHT().getLatestResult().isValid()) {
-                        // Check if we see an alignment tag (ID 20 or 24)
                         int detectedId = chassis.getLastDetectedId();
                         if (!VisionConstants.isAlignmentTag(detectedId)) {
                             ActiveOpMode.telemetry().addData("AutoAlign", "Tag %d not alignment tag (need 20/24)", detectedId);
                             return;
                         }
-
                         double heading = chassis.getFOLLOWER().getPose().getHeading();
                         double tx = Math.toRadians(chassis.getLLTx());
                         double target = heading - tx;
-
                         follower().turnTo(target);
-
                         ActiveOpMode.telemetry().addData("AutoAlign", "Targeting Tag %d...", detectedId);
                     } else {
                         ActiveOpMode.telemetry().addData("AutoAlign", "No Tag Found");
@@ -157,11 +159,9 @@ public class DriveCommands {
                 setInterruptible(true);
     }
 
-    /**
-     * TeleOp auto-alignment with joystick movement using Pedro's heading PID.
-     * ONLY aligns to tags 20 and 24 (alignment tags).
-     * Runs while button is held, stops when released.
-     */
+    // TeleOp auto-alignment with joystick movement using Pedro's heading PID.
+    // ONLY aligns to tags 20 and 24 (alignment tags).
+    // DEPRECATED: Use TurretCommands.autoAlign() instead
     public static Command alignWithJoysticks(SuperChassis chassis, DoubleSupplier forward, DoubleSupplier strafe) {
         return new LambdaCommand()
                 .named("AlignWithJoysticks")
@@ -170,36 +170,24 @@ public class DriveCommands {
                     follower().startTeleOpDrive();
                 })
                 .setUpdate(() -> {
-                    // Get joystick inputs
                     double fw = forward.getAsDouble();
                     double st = strafe.getAsDouble();
-
-                    // Apply deadband
                     if (Math.abs(fw) < 0.05) fw = 0;
                     if (Math.abs(st) < 0.05) st = 0;
-
                     if (chassis.isLLConnected() && chassis.getLIMELIGHT().getLatestResult().isValid()) {
-                        // Check if we see an alignment tag (ID 20 or 24)
                         int detectedId = chassis.getLastDetectedId();
-
                         if (VisionConstants.isAlignmentTag(detectedId)) {
-                            // Valid alignment tag - use Pedro's heading control
                             double tx = chassis.getLLTx();
                             double currentHeading = chassis.getAngle().inRad;
                             double targetHeading = currentHeading - Math.toRadians(tx);
-
-                            // Use Pedro's turnTo for smooth heading control
                             follower().setTeleOpDrive(fw, st, 0, false);
                             follower().turnTo(targetHeading);
-
                             ActiveOpMode.telemetry().addData("AutoAlign", "Tag %d | Err: %.2f°", detectedId, tx);
                         } else {
-                            // Not an alignment tag - normal drive
                             follower().setTeleOpDrive(fw, st, 0, false);
                             ActiveOpMode.telemetry().addData("AutoAlign", "Tag %d (not alignment)", detectedId);
                         }
                     } else {
-                        // No target - normal drive
                         follower().setTeleOpDrive(fw, st, 0, false);
                         ActiveOpMode.telemetry().addData("AutoAlign", "NO TARGET");
                     }
@@ -208,4 +196,5 @@ public class DriveCommands {
                 .setIsDone(() -> false)
                 .setInterruptible(true);
     }
+    */
 }

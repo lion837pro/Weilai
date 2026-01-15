@@ -33,7 +33,11 @@ import java.util.List;
  * GP2 PROGRAMMING: Hold LB + press A/B/X to build sequence → Release LB → Press Y to execute
  * GP2 SLOTS: A=Slot0 | B=Slot1 | X=Slot2 | Y=ExecuteSequence | RB=ResetSequence
  * GP2 MANUAL: LT=SpinBack | RT=SpinFwd | DpadUp=Home | DpadDown=IndexFwd | DpadLeft=IndexBack | DpadRight=PrepIntake
+ *
+ * NOTE: This mode needs updating to use Hood and Turret subsystems.
+ * Currently disabled - use Single Driver Mode instead.
  */
+@com.qualcomm.robotcore.eventloop.opmode.Disabled  // Needs update for Hood/Turret
 @TeleOp(name = "2 Driver Mode", group = "Competition")
 public class TeleopMode2Driver extends NextFTCOpMode {
 

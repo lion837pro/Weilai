@@ -26,6 +26,8 @@ import static dev.nextftc.extensions.pedro.PedroComponent.gyro;
 
 import androidx.annotation.NonNull;
 
+import com.qualcomm.robotcore.hardware.DigitalChannel;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -52,6 +54,11 @@ public class SuperChassis implements Subsystem {
     private int lockedColorSortTag = -1;
     private boolean waitingForColorSortTag = false;
 
+    // Limit switch for conditional odometry updates
+    // Only update odometry from Limelight when limit switch is triggered
+    private DigitalChannel odometryLimitSwitch;
+    private boolean odometryLimitSwitchEnabled = true; // Set to false to always update
+
     @Override
     public void initialize() {
         HardwareMap map = ActiveOpMode.hardwareMap();
@@ -69,6 +76,16 @@ public class SuperChassis implements Subsystem {
             }
         } catch (Exception e) {
             ActiveOpMode.telemetry().addData("Follower Error", "Not initialized yet");
+        }
+
+        // Initialize odometry limit switch (uses spindexer's limit switch)
+        try {
+            odometryLimitSwitch = map.get(DigitalChannel.class,
+                    org.firstinspires.ftc.teamcode.Robot.Subsystems.Spindexer.SpindexerConstants.LIMIT_SWITCH_NAME);
+            odometryLimitSwitch.setMode(DigitalChannel.Mode.INPUT);
+        } catch (Exception e) {
+            odometryLimitSwitch = null;
+            ActiveOpMode.telemetry().addData("Odometry Limit Switch", "Not found - always updating");
         }
     }
 
@@ -127,7 +144,10 @@ public class SuperChassis implements Subsystem {
 
                 Pose3D botpose_mt2 = result.getBotpose_MT2();
 
-                if (botpose_mt2 != null) {
+                // Only update odometry when limit switch is triggered (or disabled)
+                boolean shouldUpdateOdometry = !odometryLimitSwitchEnabled || isOdometryLimitSwitchTriggered();
+
+                if (botpose_mt2 != null && shouldUpdateOdometry) {
                     double x = botpose_mt2.getPosition().x;
                     double y = botpose_mt2.getPosition().y;
 
@@ -469,6 +489,35 @@ public class SuperChassis implements Subsystem {
         } else {
             return "AUTO (following visible tags)";
         }
+    }
+
+    // ===== CONDITIONAL ODOMETRY UPDATES =====
+
+    /**
+     * Check if the odometry limit switch is triggered.
+     * Returns true if the switch is triggered (active-low logic).
+     */
+    public boolean isOdometryLimitSwitchTriggered() {
+        if (odometryLimitSwitch == null) {
+            return true; // Always update if switch not available
+        }
+        // Active-low: triggered when getState() returns false
+        return !odometryLimitSwitch.getState();
+    }
+
+    /**
+     * Enable or disable conditional odometry updates.
+     * When enabled, odometry only updates when limit switch is triggered.
+     */
+    public void setOdometryLimitSwitchEnabled(boolean enabled) {
+        this.odometryLimitSwitchEnabled = enabled;
+    }
+
+    /**
+     * Check if conditional odometry updates are enabled.
+     */
+    public boolean isOdometryLimitSwitchEnabled() {
+        return odometryLimitSwitchEnabled;
     }
 }
 

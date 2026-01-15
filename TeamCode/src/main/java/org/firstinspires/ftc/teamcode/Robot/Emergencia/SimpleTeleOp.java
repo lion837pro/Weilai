@@ -16,7 +16,10 @@ import dev.nextftc.ftc.NextFTCOpMode;
 /**
  * Simple TeleOp mode that doesn't use Pedro Pathing
  * Uses a basic mecanum drive with IMU-based field-centric control
+ *
+ * DEPRECATED: This is a backup implementation. Use TeleopMode instead.
  */
+@com.qualcomm.robotcore.eventloop.opmode.Disabled  // Commented out - use main TeleopMode
 @TeleOp(name = "Simple TeleOp (No Pedro)", group = "Simple")
 public class SimpleTeleOp extends NextFTCOpMode {
 
