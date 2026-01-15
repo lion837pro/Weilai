@@ -8,6 +8,7 @@ import org.firstinspires.ftc.teamcode.Robot.DriveCommands.DriveCommands;
 import org.firstinspires.ftc.teamcode.Robot.Hardware.REV312010;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.ChassisConstants;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.SuperChassis;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.Hood.Hood;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.Intake;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.IntakeCommands;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.LED.RobotFeedback;
@@ -16,6 +17,8 @@ import org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter.ShooterCommands;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Spindexer.Spindexer;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Spindexer.SpindexerCommands;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Spindexer.SpindexerConstants;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.Turret.Turret;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.Turret.TurretCommands;
 
 import dev.nextftc.bindings.BindingManager;
 import dev.nextftc.bindings.Button;
@@ -28,16 +31,14 @@ import java.util.List;
 
 /**
  * 2-DRIVER TELEOP MODE
- * GP1(Driver): Same as single-driver | GP2(Operator): Advanced spindexer control
+ * GP1(Driver): A=Intake | B=Reverse | X=1600RPM | Y=FixedRPM+Spindexer | RB=AutoAim+Hood(MAIN)
+ *              LB=TurretAutoAlign | RT=ManualShooter | Options=ResetHeading | DpadLeft=ResetColorTag
  *
+ * GP2(Operator): Advanced spindexer control
  * GP2 PROGRAMMING: Hold LB + press A/B/X to build sequence → Release LB → Press Y to execute
  * GP2 SLOTS: A=Slot0 | B=Slot1 | X=Slot2 | Y=ExecuteSequence | RB=ResetSequence
  * GP2 MANUAL: LT=SpinBack | RT=SpinFwd | DpadUp=Home | DpadDown=IndexFwd | DpadLeft=IndexBack | DpadRight=PrepIntake
- *
- * NOTE: This mode needs updating to use Hood and Turret subsystems.
- * Currently disabled - use Single Driver Mode instead.
  */
-@com.qualcomm.robotcore.eventloop.opmode.Disabled  // Needs update for Hood/Turret
 @TeleOp(name = "2 Driver Mode", group = "Competition")
 public class TeleopMode2Driver extends NextFTCOpMode {
 
@@ -46,6 +47,8 @@ public class TeleopMode2Driver extends NextFTCOpMode {
     private final Intake intake = Intake.INSTANCE;
     private final Shooter shooter = Shooter.INSTANCE;
     private final Spindexer spindexer = Spindexer.INSTANCE;
+    private final Hood hood = Hood.INSTANCE;
+    private final Turret turret = Turret.INSTANCE;
     private REV312010 led;
     private RobotFeedback feedback;
 
@@ -70,6 +73,8 @@ public class TeleopMode2Driver extends NextFTCOpMode {
         addComponents(intake.asCOMPONENT());
         addComponents(shooter.asCOMPONENT());
         addComponents(spindexer.asCOMPONENT());
+        addComponents(hood.asCOMPONENT());
+        addComponents(turret.asCOMPONENT());
     }
 
     @Override
@@ -107,48 +112,42 @@ public class TeleopMode2Driver extends NextFTCOpMode {
         this.gp2_dpad_left = button(() -> gamepad2.dpad_left);
         this.gp2_dpad_right = button(() -> gamepad2.dpad_right);
 
-        // GP1 system controls
+        // ========== GP1 DRIVER CONTROLS ==========
+
+        // System controls (instant commands)
         gp1_options.whenBecomesTrue(DriveCommands.resetHeading(chassis));
         gp1_dpad_left.whenBecomesTrue(new InstantCommand("Reset Color Sort Tag", chassis::resetColorSortTag));
 
-        // GP1 intake controls
-        gp1_a.whenBecomesTrue(IntakeCommands.runIntakeWithSpindexer(spindexer, intake, 0.6, feedback));
-        gp1_a.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
-        gp1_a.whenBecomesFalse(IntakeCommands.stopIntake(intake));
-        gp1_b.whenBecomesTrue(IntakeCommands.runIntake(intake, -0.6));
-        gp1_b.whenBecomesFalse(IntakeCommands.stopIntake(intake));
+        // Intake controls - use whenTrue for proper "run while held" behavior
+        gp1_a.whenTrue(IntakeCommands.runIntakeWithSpindexer(spindexer, intake, 0.7, feedback));
+        gp1_b.whenTrue(IntakeCommands.runIntake(intake, -0.7));
 
-        // GP1 shooter controls
+        // Shooter controls - whenTrue auto-cancels on release
         gp1_x.whenTrue(ShooterCommands.runShooterPID(shooter, 1600, feedback));
-        gp1_x.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
         gp1_dpad_up.whenTrue(ShooterCommands.runShooterPID(shooter, -600));
-        gp1_dpad_up.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
 
-        // GP1 full shooting sequences
-        gp1_right_bumper.whenTrue(ShooterCommands.teleopShootColorSortedAutoAim(
-                shooter, spindexer, intake, chassis, feedback));
-        gp1_right_bumper.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
-        gp1_right_bumper.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
-        gp1_right_bumper.whenBecomesFalse(IntakeCommands.stopIntake(intake));
+        // Full shooting sequences (PRIMARY COMPETITION CONTROLS)
+        // RB: Hood-based auto-aim with color sorting (MAIN SHOOTING BUTTON)
+        gp1_right_bumper.whenTrue(ShooterCommands.teleopShootColorSortedWithHood(
+                shooter, hood, spindexer, intake, chassis, feedback));
 
-        gp1_y.whenBecomesTrue(ShooterCommands.teleopShootFixedRPM(shooter, spindexer, intake, 1800, feedback));
-        gp1_y.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
-        gp1_y.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
-        gp1_y.whenBecomesFalse(IntakeCommands.stopIntake(intake));
+        // Y: Fixed RPM shooting without hood auto-aim
+        gp1_y.whenTrue(ShooterCommands.teleopShootFixedRPM(shooter, spindexer, intake, 1600, feedback));
 
-        // GP1 vision controls
-        gp1_left_bumper.whenTrue(DriveCommands.alignWithJoysticks(chassis,
-                () -> -gamepad1.left_stick_y, () -> gamepad1.left_stick_x));
+        // Turret auto-align (LB) - uses Limelight to aim turret instead of chassis
+        gp1_left_bumper.whenTrue(TurretCommands.autoAlign(turret, chassis));
 
-        // GP1 default commands (field-oriented drive)
-        // Forward: -Y (gamepad Y-axis is inverted)
-        // Strafe: X (gamepad X-axis is normal)
-        // Turn: X (gamepad X-axis is normal)
+        // Spindexer manual controls
+        gp1_dpad_down.whenBecomesTrue(SpindexerCommands.indexForward(spindexer));
+
+        // GP1 default commands
         chassis.setDefaultCommand(DriveCommands.runWithJoysticks(chassis,
-                () -> -gamepad1.left_stick_y, () -> gamepad1.left_stick_x,
-                () -> gamepad1.right_stick_x, false));
+                () -> -gamepad1.left_stick_y, () -> -gamepad1.left_stick_x,
+                () -> -gamepad1.right_stick_x, false));
         shooter.setDefaultCommand(ShooterCommands.runManualShooter(shooter,
                 () -> gamepad1.right_trigger));
+
+        // ========== GP2 OPERATOR CONTROLS ==========
 
         // GP2 programming mode
         gp2_left_bumper.whenBecomesTrue(new InstantCommand("Enter Programming Mode", () -> {
@@ -186,11 +185,8 @@ public class TeleopMode2Driver extends NextFTCOpMode {
             }
         }));
 
-        // GP2 sequence execution and reset
+        // GP2 sequence execution - whenTrue auto-cancels on release
         gp2_y.whenTrue(createCustomSequenceCommand());
-        gp2_y.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
-        gp2_y.whenBecomesFalse(SpindexerCommands.stopSpindexer(spindexer));
-        gp2_y.whenBecomesFalse(IntakeCommands.stopIntake(intake));
 
         gp2_right_bumper.whenBecomesTrue(new InstantCommand("Reset Custom Sequence", () -> {
             customSequence.clear();
@@ -230,7 +226,33 @@ public class TeleopMode2Driver extends NextFTCOpMode {
 
     // Lifecycle methods
     @Override
-    public void onWaitForStart() {}
+    public void onWaitForStart() {
+        // Auto-home spindexer during init
+        telemetry.addData("Spindexer", "Starting homing...");
+        telemetry.update();
+
+        spindexer.startHoming();
+
+        long startTime = System.currentTimeMillis();
+        long timeout = 5000;
+
+        while (!spindexer.isAtHome() && (System.currentTimeMillis() - startTime) < timeout) {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                break;
+            }
+        }
+
+        if (spindexer.isAtHome()) {
+            spindexer.finishHoming();
+            telemetry.addData("Spindexer", "Homed successfully");
+        } else {
+            spindexer.stop();
+            telemetry.addData("Spindexer", "Homing timeout");
+        }
+        telemetry.update();
+    }
 
     @Override
     public void onStartButtonPressed() {}
@@ -242,8 +264,10 @@ public class TeleopMode2Driver extends NextFTCOpMode {
 
         // Telemetry
         telemetry.addData("Color Sort", chassis.getColorSortModeString());
-        telemetry.addData("Programming", programmingMode ? "★ ACTIVE ★" : "Inactive");
+        telemetry.addData("Programming", programmingMode ? "ACTIVE" : "Inactive");
         telemetry.addData("Sequence", formatSequence());
+        telemetry.addData("Hood Angle", "%.1f deg", hood.getAngleDegrees());
+        telemetry.addData("Turret Aligned", turret.isAligned() ? "YES" : "NO");
         telemetry.update();
     }
 

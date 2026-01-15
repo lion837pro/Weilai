@@ -84,23 +84,20 @@ public class TeleopMode extends NextFTCOpMode {
         this.dpad_down = button(() -> gamepad1.dpad_down);
         this.dpad_left = button(() -> gamepad1.dpad_left);
 
-        // System controls
+        // System controls (instant commands - use whenBecomesTrue)
         options.whenBecomesTrue(DriveCommands.resetHeading(chassis));
         dpad_left.whenBecomesTrue(new dev.nextftc.core.commands.utility.InstantCommand(
                 "Reset Color Sort Tag", chassis::resetColorSortTag));
 
-        // Intake controls
-        a.whenBecomesTrue(IntakeCommands.runIntakeWithSpindexer(spindexer, intake, 0.7, feedback));
-        a.whenBecomesFalse(IntakeCommands.stopIntakeWithSpindexer(spindexer, intake));
+        // Intake controls - use whenTrue for "run while held" behavior
+        // whenTrue automatically cancels the command when button is released,
+        // which triggers the command's setStop() handler to stop motors properly
+        a.whenTrue(IntakeCommands.runIntakeWithSpindexer(spindexer, intake, 0.7, feedback));
+        b.whenTrue(IntakeCommands.runIntake(intake, -0.7));
 
-        b.whenBecomesTrue(IntakeCommands.runIntake(intake, -0.7));
-        b.whenBecomesFalse(IntakeCommands.stopIntakeWithSpindexer(spindexer, intake));
-
-        // Shooter controls (standalone)
+        // Shooter controls (standalone) - whenTrue auto-cancels on release
         x.whenTrue(ShooterCommands.runShooterPID(shooter, 1600, feedback));
-        x.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
         dpad_up.whenTrue(ShooterCommands.runShooterPID(shooter, -600));
-        dpad_up.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
 
         // Full shooting sequences (PRIMARY COMPETITION CONTROLS)
         // RB: Hood-based auto-aim with color sorting (MAIN SHOOTING BUTTON)
@@ -111,8 +108,8 @@ public class TeleopMode extends NextFTCOpMode {
         y.whenTrue(ShooterCommands.teleopShootFixedRPM(shooter, spindexer, intake, 1600, feedback));
 
         // Turret auto-align (LB) - uses Limelight to aim turret instead of chassis
+        // whenTrue auto-cancels on release, calling the command's setStop() handler
         left_bumper.whenTrue(TurretCommands.autoAlign(turret, chassis));
-        left_bumper.whenBecomesFalse(TurretCommands.stop(turret));
 
         // Spindexer manual controls
         dpad_down.whenBecomesTrue(SpindexerCommands.indexForward(spindexer));
