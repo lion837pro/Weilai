@@ -521,34 +521,58 @@ public class Spindexer implements Subsystem {
     }
 
     // ===== BALL DETECTION AND COLOR =====
+    // Two sensors for efficient detection:
+    // - colorSensor1 (INTAKE): Detects balls entering, determines color
+    // - colorSensor2 (SHOOTER): Detects when ball is shot (auto-marks slot empty)
 
-    // Power efficiency: track sensor light state
-    private boolean sensorLightsEnabled = false;
+    // Power efficiency: track sensor light states separately
+    private boolean intakeSensorLightEnabled = false;
+    private boolean shooterSensorLightEnabled = false;
+
+    // Shooter sensor state for shot detection
+    private boolean ballWasAtShooter = false;  // Track if ball was present last check
 
     /**
-     * Control color sensor lights for power efficiency.
-     * Only enable lights when at intake position.
+     * Control intake sensor light for power efficiency.
      */
-    private void setColorSensorLights(boolean enabled) {
-        if (sensorLightsEnabled == enabled) return;  // No change needed
-
-        sensorLightsEnabled = enabled;
+    private void setIntakeSensorLight(boolean enabled) {
+        if (intakeSensorLightEnabled == enabled) return;
+        intakeSensorLightEnabled = enabled;
         if (colorSensor1 instanceof SwitchableLight) {
             ((SwitchableLight) colorSensor1).enableLight(enabled);
         }
+    }
+
+    /**
+     * Control shooter sensor light for power efficiency.
+     */
+    private void setShooterSensorLight(boolean enabled) {
+        if (shooterSensorLightEnabled == enabled) return;
+        shooterSensorLightEnabled = enabled;
         if (colorSensor2 instanceof SwitchableLight) {
             ((SwitchableLight) colorSensor2).enableLight(enabled);
         }
     }
 
     private void updateBallDetection() {
+        // Update intake sensor (colorSensor1)
+        updateIntakeSensor();
+
+        // Update shooter sensor (colorSensor2)
+        updateShooterSensor();
+    }
+
+    /**
+     * Intake sensor detection - detects new balls and their color.
+     */
+    private void updateIntakeSensor() {
         if (colorSensor1 == null) return;
 
-        // Power efficiency: only enable lights when at intake position
-        boolean shouldEnableLights = isAtIntakePosition() && !isMoving;
-        setColorSensorLights(shouldEnableLights);
+        // Power efficiency: only enable light when at intake position and not moving
+        boolean shouldEnable = isAtIntakePosition() && !isMoving;
+        setIntakeSensorLight(shouldEnable);
 
-        if (!isAtIntakePosition()) return;
+        if (!isAtIntakePosition() || isMoving) return;
 
         int slot = currentPosition / 2;
 
@@ -574,14 +598,57 @@ public class Spindexer implements Subsystem {
         }
     }
 
+    /**
+     * Shooter sensor detection - detects when ball is shot (leaves shooter position).
+     * Automatically marks slot as empty when ball is no longer detected.
+     */
+    private void updateShooterSensor() {
+        if (colorSensor2 == null) return;
+
+        // Power efficiency: only enable light when at shooter position and not moving
+        boolean shouldEnable = isAtShooterPosition() && !isMoving;
+        setShooterSensorLight(shouldEnable);
+
+        if (!isAtShooterPosition() || isMoving) {
+            ballWasAtShooter = false;  // Reset tracking when not at shooter
+            return;
+        }
+
+        int slot = (currentPosition - 1) / 2;
+
+        double distance = colorSensor2.getDistance(DistanceUnit.MM);
+        boolean ballPresent = distance < SpindexerConstants.COLOR_PROXIMITY_THRESHOLD;
+
+        // Detect shot: ball was present, now it's gone
+        if (ballWasAtShooter && !ballPresent && ballsLoaded[slot]) {
+            // Ball has been shot - auto mark slot as empty
+            ballsLoaded[slot] = false;
+            ballColors[slot] = BallColor.UNKNOWN;
+        }
+
+        ballWasAtShooter = ballPresent;
+    }
+
+    /**
+     * Check if ball is present at shooter position using shooter sensor.
+     * Useful for verifying ball is ready before shooting.
+     */
+    public boolean isBallAtShooter() {
+        if (colorSensor2 == null || !isAtShooterPosition()) return false;
+
+        setShooterSensorLight(true);  // Ensure light is on for check
+        double distance = colorSensor2.getDistance(DistanceUnit.MM);
+        return distance < SpindexerConstants.COLOR_PROXIMITY_THRESHOLD;
+    }
+
     public boolean forceCheckBall() {
         if (colorSensor1 == null || !isAtIntakePosition()) return false;
 
         int slot = currentPosition / 2;
         if (ballsLoaded[slot]) return false;
 
-        // Enable lights for detection (power efficiency)
-        setColorSensorLights(true);
+        // Enable light for detection
+        setIntakeSensorLight(true);
 
         double distance = colorSensor1.getDistance(DistanceUnit.MM);
         boolean ballDetected = distance < SpindexerConstants.COLOR_PROXIMITY_THRESHOLD;
@@ -785,30 +852,36 @@ public class Spindexer implements Subsystem {
                     lastDetectedColor.toString(),
                     lastDetectedRed, lastDetectedGreen, lastDetectedBlue);
 
+            // Intake sensor (colorSensor1)
             if (colorSensor1 != null) {
                 try {
-                    NormalizedRGBA live1 = colorSensor1.getNormalizedColors();
                     double dist1 = colorSensor1.getDistance(DistanceUnit.MM);
-                    ActiveOpMode.telemetry().addData("Sensor 1", "R:%.2f G:%.2f B:%.2f Dist:%.1fmm",
-                            live1.red, live1.green, live1.blue, dist1);
+                    boolean ballAtIntake = dist1 < SpindexerConstants.COLOR_PROXIMITY_THRESHOLD;
+                    ActiveOpMode.telemetry().addData("INTAKE Sensor", "%.1fmm %s %s",
+                            dist1,
+                            ballAtIntake ? "BALL" : "empty",
+                            intakeSensorLightEnabled ? "(ON)" : "(off)");
                 } catch (Exception e) {
-                    ActiveOpMode.telemetry().addData("Sensor 1", "ERROR: %s", e.getMessage());
+                    ActiveOpMode.telemetry().addData("INTAKE Sensor", "ERROR");
                 }
             } else {
-                ActiveOpMode.telemetry().addData("Sensor 1", "NOT FOUND");
+                ActiveOpMode.telemetry().addData("INTAKE Sensor", "NOT FOUND");
             }
 
+            // Shooter sensor (colorSensor2)
             if (colorSensor2 != null) {
                 try {
-                    NormalizedRGBA live2 = colorSensor2.getNormalizedColors();
                     double dist2 = colorSensor2.getDistance(DistanceUnit.MM);
-                    ActiveOpMode.telemetry().addData("Sensor 2", "R:%.2f G:%.2f B:%.2f Dist:%.1fmm",
-                            live2.red, live2.green, live2.blue, dist2);
+                    boolean ballAtShooter = dist2 < SpindexerConstants.COLOR_PROXIMITY_THRESHOLD;
+                    ActiveOpMode.telemetry().addData("SHOOTER Sensor", "%.1fmm %s %s",
+                            dist2,
+                            ballAtShooter ? "BALL" : "empty",
+                            shooterSensorLightEnabled ? "(ON)" : "(off)");
                 } catch (Exception e) {
-                    ActiveOpMode.telemetry().addData("Sensor 2", "ERROR: %s", e.getMessage());
+                    ActiveOpMode.telemetry().addData("SHOOTER Sensor", "ERROR");
                 }
             } else {
-                ActiveOpMode.telemetry().addData("Sensor 2", "NOT FOUND");
+                ActiveOpMode.telemetry().addData("SHOOTER Sensor", "NOT FOUND");
             }
 
         } catch (Exception e) {
