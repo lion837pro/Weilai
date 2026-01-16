@@ -25,8 +25,9 @@ public class HoodConstants {
     public static final double DEFAULT_ANGLE_DEG = 45.0;        // Neutral position
 
     // ===== FIXED SHOOTER RPM =====
-    // With hood-based distance control, we use a constant RPM
-    public static final double FIXED_SHOOTING_RPM = 2000.0;
+    // With hood-based distance control, we use a constant high RPM
+    // Hood angle is the only variable for distance adjustment
+    public static final double FIXED_SHOOTING_RPM = 2500.0;
 
     // ===== DISTANCE-TO-ANGLE MAPPING =====
     // Distance range (inches)

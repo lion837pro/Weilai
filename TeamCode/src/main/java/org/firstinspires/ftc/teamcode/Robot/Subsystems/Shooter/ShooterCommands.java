@@ -102,56 +102,28 @@ public class ShooterCommands {
                 .setInterruptible(true);
     }
 
+    // ========================================================================
+    // DEPRECATED: Distance-based RPM auto-aim
+    // Now using fixed high RPM (2500) with hood angle adjustment instead.
+    // Use autoAimWithHood() for distance-based shooting.
+    // ========================================================================
+
     /**
-     * Auto-rev shooter based on vision distance
+     * @deprecated Use autoAimWithHood() instead - fixed RPM with hood angle adjustment
      */
+    @Deprecated
     public static Command autoRevShooter(Shooter shooter, SuperChassis chassis) {
-        return autoRevShooter(shooter, chassis, null);
+        // Redirect to fixed RPM shooter at HoodConstants.FIXED_SHOOTING_RPM
+        return runShooterPID(shooter, HoodConstants.FIXED_SHOOTING_RPM);
     }
 
     /**
-     * Auto-rev shooter based on vision distance with feedback
+     * @deprecated Use autoAimWithHood() instead - fixed RPM with hood angle adjustment
      */
+    @Deprecated
     public static Command autoRevShooter(Shooter shooter, SuperChassis chassis, RobotFeedback feedback) {
-        final boolean[] hasNotifiedReady = {false};
-
-        return new LambdaCommand()
-                .named("autoRevShooter")
-                .requires(shooter)
-                .setStart(() -> hasNotifiedReady[0] = false)
-                .setUpdate(() -> {
-                    double distance = chassis.getDistanceToTag();
-                    double targetRPM = VisionConstants.BASE_RPM + (distance * VisionConstants.RPM_PER_INCH);
-
-                    if (targetRPM > ShooterConstants.MAX_RPM) targetRPM = ShooterConstants.MAX_RPM;
-                    if (distance <= 0) targetRPM = 1300;
-
-                    double targetTPS = ShooterConstants.rpmToTicksPerSecond(targetRPM);
-                    shooter.toVelocity(targetTPS);
-
-                    // Trigger feedback once when RPM is reached
-                    if (shooter.atSetpoint() && !hasNotifiedReady[0]) {
-                        if (feedback != null) {
-                            feedback.onShooterAtRPM();
-                        }
-                        hasNotifiedReady[0] = true;
-                    }
-                    // Reset notification if we drop well below setpoint (optional, but good for re-revving)
-                    else if (!shooter.atSetpoint() && hasNotifiedReady[0]) {
-                        // Debounce/hysteresis could be added here
-                    }
-
-                    dev.nextftc.ftc.ActiveOpMode.telemetry().addData("AutoAim Dist", "%.1f in", distance);
-                    dev.nextftc.ftc.ActiveOpMode.telemetry().addData("AutoAim RPM", "%.0f", targetRPM);
-                })
-                .setStop(interrupted -> {
-                    shooter.stop();
-                    if (feedback != null) {
-                        feedback.onShooterStop();
-                    }
-                })
-                .setIsDone(() -> false)
-                .setInterruptible(true);
+        // Redirect to fixed RPM shooter at HoodConstants.FIXED_SHOOTING_RPM
+        return runShooterPID(shooter, HoodConstants.FIXED_SHOOTING_RPM, feedback);
     }
 
     // ========================================================================

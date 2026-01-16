@@ -35,6 +35,9 @@ public class Shooter implements Subsystem {
     private double rawPower = 0;
     private double currentHoodPosition = ShooterConstants.HOOD_DEFAULT_POSITION;
 
+    // Power efficiency: track if motors are idle for float mode
+    private boolean isIdle = true;
+
     private Command defaultCommand = new NullCommand();
 
     @Override
@@ -209,8 +212,27 @@ public class Shooter implements Subsystem {
 
     private void setPower(double power) {
         this.currentPower = power;
-        if (motor1 != null) motor1.setPower(power);
-        if (motor2 != null) motor2.setPower(power);
+
+        // Power efficiency: switch to float mode when idle
+        if (Math.abs(power) < 0.01) {
+            if (!isIdle) {
+                // Switch to float mode for power savings when stopping
+                if (motor1 != null) motor1.floatMode();
+                if (motor2 != null) motor2.floatMode();
+                isIdle = true;
+            }
+            if (motor1 != null) motor1.setPower(0);
+            if (motor2 != null) motor2.setPower(0);
+        } else {
+            if (isIdle) {
+                // Switch back to brake mode when running for better control
+                if (motor1 != null) motor1.brakeMode();
+                if (motor2 != null) motor2.brakeMode();
+                isIdle = false;
+            }
+            if (motor1 != null) motor1.setPower(power);
+            if (motor2 != null) motor2.setPower(power);
+        }
     }
 
     public void set(double power) {

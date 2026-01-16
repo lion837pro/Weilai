@@ -24,6 +24,8 @@ public class Intake implements Subsystem {
             if (IntakeConstants.intakeinverted) {
                 motor.reversed();
             }
+            // Power efficiency: use float mode - intake doesn't need holding torque
+            motor.floatMode();
         } catch (Exception e) {
             motor = null;
             ActiveOpMode.telemetry().addData("Intake Error", "Motor not found");

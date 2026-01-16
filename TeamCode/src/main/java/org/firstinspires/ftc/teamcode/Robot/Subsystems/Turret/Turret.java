@@ -41,6 +41,9 @@ public class Turret implements Subsystem {
     private double lastError = 0.0;
     private long lastPIDTime = 0;
 
+    // Power efficiency: track if motor is idle
+    private boolean isIdle = true;
+
     // Alignment state (for vision-based auto-align)
     private double alignError = 0;            // Error from vision (tx)
     private double lastAlignError = 0;
@@ -462,12 +465,26 @@ public class Turret implements Subsystem {
     // ===== LOW-LEVEL CONTROL =====
 
     /**
-     * Set motor power directly
+     * Set motor power directly with power efficiency management
      */
     private void setPower(double power) {
         if (motor == null) return;
         this.currentPower = power;
-        motor.setPower(power);
+
+        // Power efficiency: switch to float mode when idle
+        if (Math.abs(power) < 0.01) {
+            if (!isIdle) {
+                motor.floatMode();  // Save power when idle
+                isIdle = true;
+            }
+            motor.setPower(0);
+        } else {
+            if (isIdle) {
+                motor.brakeMode();  // Better control when active
+                isIdle = false;
+            }
+            motor.setPower(power);
+        }
     }
 
     /**

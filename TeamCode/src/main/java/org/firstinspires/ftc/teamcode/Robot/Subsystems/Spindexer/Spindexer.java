@@ -137,12 +137,13 @@ public class Spindexer implements Subsystem {
             ActiveOpMode.telemetry().addData("WARN", "Limit switch not found - homing disabled");
         }
 
-        // Initialize color sensors
+        // Initialize color sensors - lights start OFF for power efficiency
+        // Lights will be enabled only when at intake position
         try {
             this.colorSensor1 = ActiveOpMode.hardwareMap()
                     .get(ColorRangeSensor.class, SpindexerConstants.COLOR_SENSOR_1_NAME);
             if (this.colorSensor1 instanceof SwitchableLight) {
-                ((SwitchableLight) this.colorSensor1).enableLight(true);
+                ((SwitchableLight) this.colorSensor1).enableLight(false);  // Power save: off by default
             }
             this.colorSensor1.setGain(SpindexerConstants.COLOR_SENSOR_GAIN);
         } catch (Exception e) {
@@ -153,7 +154,7 @@ public class Spindexer implements Subsystem {
             this.colorSensor2 = ActiveOpMode.hardwareMap()
                     .get(ColorRangeSensor.class, SpindexerConstants.COLOR_SENSOR_2_NAME);
             if (this.colorSensor2 instanceof SwitchableLight) {
-                ((SwitchableLight) this.colorSensor2).enableLight(true);
+                ((SwitchableLight) this.colorSensor2).enableLight(false);  // Power save: off by default
             }
             this.colorSensor2.setGain(SpindexerConstants.COLOR_SENSOR_GAIN);
         } catch (Exception e) {
@@ -521,8 +522,32 @@ public class Spindexer implements Subsystem {
 
     // ===== BALL DETECTION AND COLOR =====
 
+    // Power efficiency: track sensor light state
+    private boolean sensorLightsEnabled = false;
+
+    /**
+     * Control color sensor lights for power efficiency.
+     * Only enable lights when at intake position.
+     */
+    private void setColorSensorLights(boolean enabled) {
+        if (sensorLightsEnabled == enabled) return;  // No change needed
+
+        sensorLightsEnabled = enabled;
+        if (colorSensor1 instanceof SwitchableLight) {
+            ((SwitchableLight) colorSensor1).enableLight(enabled);
+        }
+        if (colorSensor2 instanceof SwitchableLight) {
+            ((SwitchableLight) colorSensor2).enableLight(enabled);
+        }
+    }
+
     private void updateBallDetection() {
         if (colorSensor1 == null) return;
+
+        // Power efficiency: only enable lights when at intake position
+        boolean shouldEnableLights = isAtIntakePosition() && !isMoving;
+        setColorSensorLights(shouldEnableLights);
+
         if (!isAtIntakePosition()) return;
 
         int slot = currentPosition / 2;
@@ -554,6 +579,9 @@ public class Spindexer implements Subsystem {
 
         int slot = currentPosition / 2;
         if (ballsLoaded[slot]) return false;
+
+        // Enable lights for detection (power efficiency)
+        setColorSensorLights(true);
 
         double distance = colorSensor1.getDistance(DistanceUnit.MM);
         boolean ballDetected = distance < SpindexerConstants.COLOR_PROXIMITY_THRESHOLD;
