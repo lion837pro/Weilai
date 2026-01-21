@@ -32,7 +32,7 @@ public class ChassisConstants {
 
 
     // GoBilda Strafer V5 Standard Motor Configuration
-    // FL: REVERSE, FR: FORWARD, BL: REVERSE, BR: FORWARD
+    // FL: REVERSE, FR: REVERSE, BL: FORWARD, BR: FORWARD
     public static final MecanumConstants driveConstants = new MecanumConstants()
             .maxPower(1)
             .rightFrontMotorName(frName)
