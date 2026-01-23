@@ -131,8 +131,11 @@ public class Turret implements Subsystem {
         lastError = 0.0;
         lastPIDTime = 0;
 
+        // Set position mode, clear other modes
         hasTarget = true;
         isAligning = false;
+        isOdometryTargeting = false;
+        isReturningToCenter = false;
         moveTimer.reset();
     }
 
@@ -231,6 +234,8 @@ public class Turret implements Subsystem {
     public void startAutoAlign() {
         isAligning = true;
         hasTarget = false;
+        isOdometryTargeting = false;
+        isReturningToCenter = false;  // Cancel any return-to-center in progress
         alignError = 0;
         lastAlignError = 0;
     }
@@ -310,6 +315,7 @@ public class Turret implements Subsystem {
         isOdometryTargeting = true;
         isAligning = false;
         hasTarget = false;
+        isReturningToCenter = false;  // Cancel any return-to-center in progress
         lastError = 0;
     }
 
@@ -426,8 +432,11 @@ public class Turret implements Subsystem {
      * Manual spin control (for joystick input)
      */
     public void spin(double power) {
+        // Clear all automatic modes when manually controlling
         hasTarget = false;
         isAligning = false;
+        isOdometryTargeting = false;
+        isReturningToCenter = false;
 
         // Scale power
         power *= TurretConstants.MANUAL_POWER_SCALE;
