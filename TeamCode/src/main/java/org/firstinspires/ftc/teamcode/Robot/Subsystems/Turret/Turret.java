@@ -541,9 +541,15 @@ public class Turret implements Subsystem {
     /**
      * Check if shooter is allowed to rev based on turret direction.
      * Shooter can only rev when turret is clockwise or static (not counter-clockwise).
+     * Exception: Always allow during return-to-center (automatic cable unwinding).
      */
     public boolean canShooterRev() {
-        return !isTurningCounterClockwise();  // Allow when clockwise or static
+        // Always allow shooter during automatic return-to-center
+        if (isReturningToCenter) {
+            return true;
+        }
+        // Otherwise, block only when actively turning counter-clockwise
+        return !isTurningCounterClockwise();
     }
 
     // ===== LOW-LEVEL CONTROL =====
