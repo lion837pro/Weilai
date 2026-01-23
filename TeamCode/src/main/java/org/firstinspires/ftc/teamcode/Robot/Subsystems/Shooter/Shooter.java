@@ -13,6 +13,7 @@ import dev.nextftc.hardware.impl.MotorEx;
 import org.firstinspires.ftc.teamcode.Lib.STZLite.Math.Controller.VelocityProfileController;
 import org.firstinspires.ftc.teamcode.Lib.STZLite.Math.Intervals.Interval;
 import org.firstinspires.ftc.teamcode.Lib.STZLite.Math.Controller.SlewRateLimiter;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.Turret.Turret;
 
 public class Shooter implements Subsystem {
     public static final Shooter INSTANCE = new Shooter();
@@ -127,12 +128,19 @@ public class Shooter implements Subsystem {
     public void periodic() {
 
         if (hasTarget && !open) {
-            rawPower = controller.calculate(getVelocity());
+            // Only allow revving if turret is clockwise or static (not counter-clockwise)
+            if (Turret.INSTANCE.canShooterRev()) {
+                rawPower = controller.calculate(getVelocity());
 
-            // Apply slew rate limiting to prevent belt slip
-            double limitedPower = slewRateLimiter.calculate(rawPower);
+                // Apply slew rate limiting to prevent belt slip
+                double limitedPower = slewRateLimiter.calculate(rawPower);
 
-            setPower(limitedPower);
+                setPower(limitedPower);
+            } else {
+                // Turret is turning counter-clockwise, don't rev
+                setPower(0);
+                rawPower = 0;
+            }
         }
         try {
             ActiveOpMode.telemetry().addData("--- SHOOTER DEBUG ---", "");
@@ -183,6 +191,10 @@ public class Shooter implements Subsystem {
             ActiveOpMode.telemetry().addData("--- MOTORS ---", "");
             ActiveOpMode.telemetry().addData("Motor1", motor1 != null ? "OK" : "NOT FOUND");
             ActiveOpMode.telemetry().addData("Motor2", motor2 != null ? "OK" : "NOT FOUND");
+
+            // H. Turret-Shooter interlock status
+            ActiveOpMode.telemetry().addData("--- TURRET LOCK ---", "");
+            ActiveOpMode.telemetry().addData("Turret Allows Rev", Turret.INSTANCE.canShooterRev() ? "YES" : "NO (CCW)");
 
             // Don't call update() here - let the OpMode handle telemetry updates
         } catch (Exception e) {

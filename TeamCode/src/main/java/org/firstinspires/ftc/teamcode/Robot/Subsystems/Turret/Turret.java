@@ -462,6 +462,43 @@ public class Turret implements Subsystem {
         return alignError;
     }
 
+    /**
+     * Get current motor power (useful for checking turret direction)
+     * Positive = clockwise, Negative = counter-clockwise, ~0 = static
+     */
+    public double getCurrentPower() {
+        return currentPower;
+    }
+
+    /**
+     * Check if turret is turning clockwise (positive power)
+     */
+    public boolean isTurningClockwise() {
+        return currentPower > 0.05;  // Small threshold to avoid noise
+    }
+
+    /**
+     * Check if turret is turning counter-clockwise (negative power)
+     */
+    public boolean isTurningCounterClockwise() {
+        return currentPower < -0.05;  // Small threshold to avoid noise
+    }
+
+    /**
+     * Check if turret is static (not moving)
+     */
+    public boolean isStatic() {
+        return Math.abs(currentPower) <= 0.05;
+    }
+
+    /**
+     * Check if shooter is allowed to rev based on turret direction.
+     * Shooter can only rev when turret is clockwise or static (not counter-clockwise).
+     */
+    public boolean canShooterRev() {
+        return !isTurningCounterClockwise();  // Allow when clockwise or static
+    }
+
     // ===== LOW-LEVEL CONTROL =====
 
     /**
