@@ -5,7 +5,6 @@ import androidx.annotation.NonNull;
 import com.qualcomm.robotcore.hardware.ColorRangeSensor;
 import com.qualcomm.robotcore.hardware.DigitalChannel;
 import com.qualcomm.robotcore.hardware.NormalizedRGBA;
-import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.SwitchableLight;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
@@ -14,6 +13,7 @@ import dev.nextftc.core.commands.utility.NullCommand;
 import dev.nextftc.core.components.SubsystemComponent;
 import dev.nextftc.core.subsystems.Subsystem;
 import dev.nextftc.ftc.ActiveOpMode;
+import dev.nextftc.hardware.impl.MotorEx;
 
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants;
@@ -23,13 +23,13 @@ import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants.Bal
  * Spindexer (Spinning Indexer) Subsystem
  *
  * A rotating indexer that holds 3 balls with 6 preset positions.
- * Uses 3 GoBilda continuous rotation servos in a gearbox configuration.
+ * Uses a 312 RPM motor with encoder for precise position control.
  * Uses a magnetic limit switch for homing and 2 color sensors for ball detection.
  * Tracks ball colors (GREEN or PURPLE) for automatic color sorting with AprilTags.
  *
- * CONTINUOUS ROTATION SERVO CONTROL:
- * - Servos act like motors: 0.5 = stop, 0.0 = full reverse, 1.0 = full forward
- * - Position is tracked virtually using time-based movement
+ * MOTOR-BASED CONTROL:
+ * - Uses encoder feedback for precise positioning
+ * - PID control for smooth movement
  * - Limit switch is used for homing to establish position 0
  *
  * Slot mapping:
@@ -41,12 +41,10 @@ public class Spindexer implements Subsystem {
 
     public static final Spindexer INSTANCE = new Spindexer();
 
-    // Hardware - 3 continuous rotation servos in gearbox
-    private Servo servo1;
-    private Servo servo2;
-    private Servo servo3;
+    // Hardware - Motor
+    private MotorEx motor;
 
-    // Hardware - Common
+    // Hardware - Sensors
     private DigitalChannel limitSwitch;
     private ColorRangeSensor colorSensor1;
     private ColorRangeSensor colorSensor2;
@@ -57,13 +55,17 @@ public class Spindexer implements Subsystem {
     private boolean isHomed = false;           // Has the spindexer been homed?
     private boolean isMoving = false;          // Is the spindexer currently moving?
 
-    // Virtual position tracking (in degrees, 0-360)
-    private double virtualPositionDegrees = 0.0;
-    private double targetDegrees = 0.0;
+    // Encoder tracking
+    private double encoderOffset = 0;          // Virtual encoder reset offset
+    private double targetTicks = 0;            // Target encoder position
+
+    // PID state
+    private double lastError = 0;
+    private long lastPIDTime = 0;
 
     // Ball color tracking
-    private BallColor[] ballColors = new BallColor[3];  // Color of ball in each slot
-    private boolean[] ballsLoaded = new boolean[3];     // Whether slot has a ball
+    private BallColor[] ballColors = new BallColor[3];
+    private boolean[] ballsLoaded = new boolean[3];
 
     // Last detected color (for intake)
     private BallColor lastDetectedColor = BallColor.UNKNOWN;
@@ -72,13 +74,11 @@ public class Spindexer implements Subsystem {
     private int lastDetectedBlue = 0;
 
     // Movement control
-    private double currentPower = 0;           // Current servo power (-1 to 1)
-    private double moveDurationMs = 0;         // How long to move for current command
-    private int moveDirection = 0;             // 1 = forward, -1 = backward, 0 = stopped
+    private double currentPower = 0;
 
     // Shooter offset state (for mechanical clearance)
     private boolean isInOffsetPosition = false;
-    private double basePositionDegrees = 0;    // Position before offset was applied
+    private double basePositionTicks = 0;
 
     // Timers
     private ElapsedTime moveTimer = new ElapsedTime();
@@ -93,39 +93,18 @@ public class Spindexer implements Subsystem {
 
     @Override
     public void initialize() {
-        // Initialize 3 continuous rotation servos
+        // Initialize motor
         try {
-            servo1 = ActiveOpMode.hardwareMap().get(Servo.class, SpindexerConstants.SERVO_1_NAME);
-            if (SpindexerConstants.SERVO_1_REVERSED) {
-                servo1.setDirection(Servo.Direction.REVERSE);
+            motor = new MotorEx(SpindexerConstants.MOTOR_NAME);
+            if (SpindexerConstants.MOTOR_INVERTED) {
+                motor.reversed();
             }
+            motor.brakeMode();
+            motor.resetEncoder();
         } catch (Exception e) {
-            servo1 = null;
-            ActiveOpMode.telemetry().addData("Servo1 Error", e.getMessage());
+            motor = null;
+            ActiveOpMode.telemetry().addData("Spindexer Motor", "NOT FOUND: " + e.getMessage());
         }
-
-        try {
-            servo2 = ActiveOpMode.hardwareMap().get(Servo.class, SpindexerConstants.SERVO_2_NAME);
-            if (SpindexerConstants.SERVO_2_REVERSED) {
-                servo2.setDirection(Servo.Direction.REVERSE);
-            }
-        } catch (Exception e) {
-            servo2 = null;
-            ActiveOpMode.telemetry().addData("Servo2 Error", e.getMessage());
-        }
-
-        try {
-            servo3 = ActiveOpMode.hardwareMap().get(Servo.class, SpindexerConstants.SERVO_3_NAME);
-            if (SpindexerConstants.SERVO_3_REVERSED) {
-                servo3.setDirection(Servo.Direction.REVERSE);
-            }
-        } catch (Exception e) {
-            servo3 = null;
-            ActiveOpMode.telemetry().addData("Servo3 Error", e.getMessage());
-        }
-
-        // Stop servos initially
-        setServoPower(0);
 
         // Initialize limit switch (magnetic) - REQUIRED for homing
         try {
@@ -137,13 +116,12 @@ public class Spindexer implements Subsystem {
             ActiveOpMode.telemetry().addData("WARN", "Limit switch not found - homing disabled");
         }
 
-        // Initialize color sensors - lights start OFF for power efficiency
-        // Lights will be enabled only when at intake position
+        // Initialize color sensors
         try {
             this.colorSensor1 = ActiveOpMode.hardwareMap()
                     .get(ColorRangeSensor.class, SpindexerConstants.COLOR_SENSOR_1_NAME);
             if (this.colorSensor1 instanceof SwitchableLight) {
-                ((SwitchableLight) this.colorSensor1).enableLight(false);  // Power save: off by default
+                ((SwitchableLight) this.colorSensor1).enableLight(false);
             }
             this.colorSensor1.setGain(SpindexerConstants.COLOR_SENSOR_GAIN);
         } catch (Exception e) {
@@ -154,7 +132,7 @@ public class Spindexer implements Subsystem {
             this.colorSensor2 = ActiveOpMode.hardwareMap()
                     .get(ColorRangeSensor.class, SpindexerConstants.COLOR_SENSOR_2_NAME);
             if (this.colorSensor2 instanceof SwitchableLight) {
-                ((SwitchableLight) this.colorSensor2).enableLight(false);  // Power save: off by default
+                ((SwitchableLight) this.colorSensor2).enableLight(false);
             }
             this.colorSensor2.setGain(SpindexerConstants.COLOR_SENSOR_GAIN);
         } catch (Exception e) {
@@ -166,31 +144,6 @@ public class Spindexer implements Subsystem {
             ballsLoaded[i] = false;
             ballColors[i] = BallColor.UNKNOWN;
         }
-    }
-
-    // ===== CONTINUOUS ROTATION SERVO CONTROL =====
-
-    /**
-     * Set power to all servos (-1.0 to 1.0)
-     * Maps to servo values: -1 -> 0.0, 0 -> 0.5, 1 -> 1.0
-     */
-    private void setServoPower(double power) {
-        power = Math.max(-1, Math.min(1, power));  // Clamp to -1 to 1
-        this.currentPower = power;
-
-        // Convert power (-1 to 1) to servo position (0 to 1) where 0.5 = stopped
-        double servoValue = SpindexerConstants.CR_SERVO_STOP + (power * 0.5);
-
-        if (servo1 != null) servo1.setPosition(servoValue);
-        if (servo2 != null) servo2.setPosition(servoValue);
-        if (servo3 != null) servo3.setPosition(servoValue);
-    }
-
-    /**
-     * Get the current commanded power
-     */
-    public double getCurrentPower() {
-        return currentPower;
     }
 
     @NonNull
@@ -205,6 +158,8 @@ public class Spindexer implements Subsystem {
 
     @Override
     public void periodic() {
+        if (motor == null) return;
+
         // Update ball detection
         updateBallDetection();
 
@@ -212,38 +167,25 @@ public class Spindexer implements Subsystem {
         if (isHoming) {
             if (isLimitSwitchTriggered()) {
                 // Found home position
-                setServoPower(0);
-                virtualPositionDegrees = 0;
+                motor.setPower(0);
+                resetEncoder();
                 currentPosition = 0;
                 targetPosition = 0;
+                targetTicks = 0;
                 isHomed = true;
                 isHoming = false;
                 isMoving = false;
             } else if (moveTimer.milliseconds() >= SpindexerConstants.HOMING_TIMEOUT_MS) {
                 // Homing timeout
-                setServoPower(0);
+                motor.setPower(0);
                 isHoming = false;
                 isMoving = false;
             }
             // Continue spinning during homing (power already set)
         }
-        // Handle time-based movement
+        // Handle position control
         else if (isMoving && !isSettling) {
-            // Check if we've moved for the required duration
-            if (moveTimer.milliseconds() >= moveDurationMs) {
-                // Stop the servos
-                setServoPower(0);
-
-                // Update virtual position
-                virtualPositionDegrees = targetDegrees;
-                // Normalize to 0-360
-                while (virtualPositionDegrees < 0) virtualPositionDegrees += 360;
-                while (virtualPositionDegrees >= 360) virtualPositionDegrees -= 360;
-
-                // Start settling
-                isSettling = true;
-                settleTimer.reset();
-            }
+            runPositionPID();
         }
         // Handle settling
         else if (isSettling) {
@@ -260,6 +202,60 @@ public class Spindexer implements Subsystem {
         }
     }
 
+    // ===== POSITION PID CONTROL =====
+
+    private void runPositionPID() {
+        long currentTime = System.nanoTime();
+        double dt = lastPIDTime == 0 ? 0.02 : (currentTime - lastPIDTime) / 1e9;
+        lastPIDTime = currentTime;
+
+        double currentTicks = getCurrentTicks();
+        double error = targetTicks - currentTicks;
+
+        // Check if at position
+        if (Math.abs(error) <= SpindexerConstants.POSITION_TOLERANCE) {
+            motor.setPower(0);
+            currentPower = 0;
+            // Start settling
+            isSettling = true;
+            settleTimer.reset();
+            return;
+        }
+
+        // PD control
+        double p = SpindexerConstants.kP * error;
+        double derivative = (error - lastError) / dt;
+        double d = SpindexerConstants.kD * derivative;
+        lastError = error;
+
+        double power = p + d;
+
+        // Add static friction compensation
+        if (Math.abs(power) > 0.01) {
+            power += Math.signum(power) * SpindexerConstants.kS;
+        }
+
+        // Clamp power
+        power = Math.max(-SpindexerConstants.MAX_POWER,
+                Math.min(SpindexerConstants.MAX_POWER, power));
+
+        motor.setPower(power);
+        currentPower = power;
+    }
+
+    // ===== ENCODER METHODS =====
+
+    private double getCurrentTicks() {
+        if (motor == null) return 0;
+        return motor.getCurrentPosition() - encoderOffset;
+    }
+
+    private void resetEncoder() {
+        if (motor != null) {
+            encoderOffset = motor.getCurrentPosition();
+        }
+    }
+
     // ===== POSITION CONTROL METHODS =====
 
     /**
@@ -271,37 +267,29 @@ public class Spindexer implements Subsystem {
         }
 
         targetPosition = positionIndex;
-        targetDegrees = positionIndex * SpindexerConstants.DEGREES_PER_POSITION;
+        double targetPositionTicks = SpindexerConstants.getPositionTicks(positionIndex);
+        double currentTicks = getCurrentTicks();
 
         // Calculate shortest rotation direction
-        double forwardDistance = targetDegrees - virtualPositionDegrees;
-        if (forwardDistance < 0) forwardDistance += 360;
+        double ticksPerRev = SpindexerConstants.TICKS_PER_SPINDEXER_REV;
+        double forwardDistance = targetPositionTicks - currentTicks;
+        if (forwardDistance < 0) forwardDistance += ticksPerRev;
 
-        double backwardDistance = virtualPositionDegrees - targetDegrees;
-        if (backwardDistance < 0) backwardDistance += 360;
-
-        double distanceDegrees;
-        double power;
+        double backwardDistance = currentTicks - targetPositionTicks;
+        if (backwardDistance < 0) backwardDistance += ticksPerRev;
 
         if (SpindexerConstants.OPTIMIZE_ROTATION_DIRECTION && backwardDistance < forwardDistance) {
-            // Go backward (negative direction)
-            distanceDegrees = backwardDistance;
-            power = -SpindexerConstants.CR_SERVO_INDEX_POWER;
-            moveDirection = -1;
+            // Go backward
+            targetTicks = currentTicks - backwardDistance;
         } else {
-            // Go forward (positive direction)
-            distanceDegrees = forwardDistance;
-            power = SpindexerConstants.CR_SERVO_INDEX_POWER;
-            moveDirection = 1;
+            // Go forward
+            targetTicks = currentTicks + forwardDistance;
         }
 
-        // Calculate time needed based on degrees and speed
-        // Time = Distance / Speed, where Speed = degrees per ms at given power
-        double degreesPerMs = SpindexerConstants.DEGREES_PER_MS_FULL_POWER * Math.abs(power);
-        moveDurationMs = distanceDegrees / degreesPerMs;
+        // Reset PID state
+        lastError = 0;
+        lastPIDTime = 0;
 
-        // Start movement
-        setServoPower(power);
         isMoving = true;
         isSettling = false;
         moveTimer.reset();
@@ -389,28 +377,19 @@ public class Spindexer implements Subsystem {
 
     /**
      * Apply offset to move ball away from shooter wheel during spin-up.
-     * Moves 60 degrees forward from current position.
      */
     public void applyShooterOffset() {
         if (isInOffsetPosition) return;
 
-        basePositionDegrees = virtualPositionDegrees;
+        basePositionTicks = getCurrentTicks();
+        targetTicks = basePositionTicks + SpindexerConstants.SHOOTER_CLEARANCE_OFFSET_TICKS;
 
-        // Calculate offset target (60 degrees forward)
-        double offsetDegrees = SpindexerConstants.SHOOTER_CLEARANCE_OFFSET_DEGREES;
-        targetDegrees = virtualPositionDegrees + offsetDegrees;
-        if (targetDegrees >= 360) targetDegrees -= 360;
+        lastError = 0;
+        lastPIDTime = 0;
 
-        // Calculate move duration
-        double degreesPerMs = SpindexerConstants.DEGREES_PER_MS_FULL_POWER * SpindexerConstants.CR_SERVO_INDEX_POWER;
-        moveDurationMs = offsetDegrees / degreesPerMs;
-
-        // Start movement forward
-        setServoPower(SpindexerConstants.CR_SERVO_INDEX_POWER);
         isMoving = true;
         isSettling = false;
         isInOffsetPosition = true;
-        moveDirection = 1;
         moveTimer.reset();
     }
 
@@ -420,35 +399,24 @@ public class Spindexer implements Subsystem {
     public void removeShooterOffset() {
         if (!isInOffsetPosition) return;
 
-        targetDegrees = basePositionDegrees;
+        targetTicks = basePositionTicks;
 
-        // Calculate offset distance (going back 60 degrees)
-        double offsetDegrees = SpindexerConstants.SHOOTER_CLEARANCE_OFFSET_DEGREES;
-        double degreesPerMs = SpindexerConstants.DEGREES_PER_MS_FULL_POWER * SpindexerConstants.CR_SERVO_INDEX_POWER;
-        moveDurationMs = offsetDegrees / degreesPerMs;
+        lastError = 0;
+        lastPIDTime = 0;
 
-        // Start movement backward
-        setServoPower(-SpindexerConstants.CR_SERVO_INDEX_POWER);
         isMoving = true;
         isSettling = false;
         isInOffsetPosition = false;
-        moveDirection = -1;
         moveTimer.reset();
     }
 
-    /**
-     * Check if spindexer is in offset position
-     */
     public boolean isInOffsetPosition() {
         return isInOffsetPosition;
     }
 
-    /**
-     * Reset offset state
-     */
     public void resetOffsetState() {
         isInOffsetPosition = false;
-        basePositionDegrees = 0;
+        basePositionTicks = 0;
     }
 
     // ===== HOMING =====
@@ -459,9 +427,10 @@ public class Spindexer implements Subsystem {
     public void startHoming() {
         if (limitSwitch == null) {
             // No limit switch - assume position 0
-            virtualPositionDegrees = 0;
+            resetEncoder();
             currentPosition = 0;
             targetPosition = 0;
+            targetTicks = 0;
             isHomed = true;
             return;
         }
@@ -472,26 +441,22 @@ public class Spindexer implements Subsystem {
         moveTimer.reset();
 
         // Spin slowly in reverse direction until limit switch triggers
-        setServoPower(-SpindexerConstants.HOMING_POWER);
+        if (motor != null) {
+            motor.setPower(-SpindexerConstants.HOMING_POWER);
+        }
     }
 
-    /**
-     * Check if limit switch is triggered
-     */
     private boolean isLimitSwitchTriggered() {
         if (limitSwitch == null) return false;
 
         boolean state = limitSwitch.getState();
         if (SpindexerConstants.LIMIT_SWITCH_ACTIVE_LOW) {
-            return !state;  // Active-low: triggered when LOW
+            return !state;
         } else {
-            return state;   // Active-high: triggered when HIGH
+            return state;
         }
     }
 
-    /**
-     * Check if at home position (for external use)
-     */
     public boolean isAtHome() {
         if (limitSwitch == null) {
             return currentPosition == 0 && !isMoving;
@@ -499,42 +464,28 @@ public class Spindexer implements Subsystem {
         return isLimitSwitchTriggered();
     }
 
-    /**
-     * Get raw limit switch state for debugging
-     */
     public boolean getLimitSwitchRawState() {
         if (limitSwitch == null) return false;
         return limitSwitch.getState();
     }
 
-    /**
-     * Complete homing routine (called when limit switch detected)
-     */
     public void finishHoming() {
-        setServoPower(0);
-        virtualPositionDegrees = 0;
+        if (motor != null) motor.setPower(0);
+        resetEncoder();
         currentPosition = 0;
         targetPosition = 0;
+        targetTicks = 0;
         isHomed = true;
         isHoming = false;
         isMoving = false;
     }
 
     // ===== BALL DETECTION AND COLOR =====
-    // Two sensors for efficient detection:
-    // - colorSensor1 (INTAKE): Detects balls entering, determines color
-    // - colorSensor2 (SHOOTER): Detects when ball is shot (auto-marks slot empty)
 
-    // Power efficiency: track sensor light states separately
     private boolean intakeSensorLightEnabled = false;
     private boolean shooterSensorLightEnabled = false;
+    private boolean ballWasAtShooter = false;
 
-    // Shooter sensor state for shot detection
-    private boolean ballWasAtShooter = false;  // Track if ball was present last check
-
-    /**
-     * Control intake sensor light for power efficiency.
-     */
     private void setIntakeSensorLight(boolean enabled) {
         if (intakeSensorLightEnabled == enabled) return;
         intakeSensorLightEnabled = enabled;
@@ -543,9 +494,6 @@ public class Spindexer implements Subsystem {
         }
     }
 
-    /**
-     * Control shooter sensor light for power efficiency.
-     */
     private void setShooterSensorLight(boolean enabled) {
         if (shooterSensorLightEnabled == enabled) return;
         shooterSensorLightEnabled = enabled;
@@ -555,20 +503,13 @@ public class Spindexer implements Subsystem {
     }
 
     private void updateBallDetection() {
-        // Update intake sensor (colorSensor1)
         updateIntakeSensor();
-
-        // Update shooter sensor (colorSensor2)
         updateShooterSensor();
     }
 
-    /**
-     * Intake sensor detection - detects new balls and their color.
-     */
     private void updateIntakeSensor() {
         if (colorSensor1 == null) return;
 
-        // Power efficiency: only enable light when at intake position and not moving
         boolean shouldEnable = isAtIntakePosition() && !isMoving;
         setIntakeSensorLight(shouldEnable);
 
@@ -598,19 +539,14 @@ public class Spindexer implements Subsystem {
         }
     }
 
-    /**
-     * Shooter sensor detection - detects when ball is shot (leaves shooter position).
-     * Automatically marks slot as empty when ball is no longer detected.
-     */
     private void updateShooterSensor() {
         if (colorSensor2 == null) return;
 
-        // Power efficiency: only enable light when at shooter position and not moving
         boolean shouldEnable = isAtShooterPosition() && !isMoving;
         setShooterSensorLight(shouldEnable);
 
         if (!isAtShooterPosition() || isMoving) {
-            ballWasAtShooter = false;  // Reset tracking when not at shooter
+            ballWasAtShooter = false;
             return;
         }
 
@@ -619,9 +555,7 @@ public class Spindexer implements Subsystem {
         double distance = colorSensor2.getDistance(DistanceUnit.MM);
         boolean ballPresent = distance < SpindexerConstants.COLOR_PROXIMITY_THRESHOLD;
 
-        // Detect shot: ball was present, now it's gone
         if (ballWasAtShooter && !ballPresent && ballsLoaded[slot]) {
-            // Ball has been shot - auto mark slot as empty
             ballsLoaded[slot] = false;
             ballColors[slot] = BallColor.UNKNOWN;
         }
@@ -629,14 +563,10 @@ public class Spindexer implements Subsystem {
         ballWasAtShooter = ballPresent;
     }
 
-    /**
-     * Check if ball is present at shooter position using shooter sensor.
-     * Useful for verifying ball is ready before shooting.
-     */
     public boolean isBallAtShooter() {
         if (colorSensor2 == null || !isAtShooterPosition()) return false;
 
-        setShooterSensorLight(true);  // Ensure light is on for check
+        setShooterSensorLight(true);
         double distance = colorSensor2.getDistance(DistanceUnit.MM);
         return distance < SpindexerConstants.COLOR_PROXIMITY_THRESHOLD;
     }
@@ -647,7 +577,6 @@ public class Spindexer implements Subsystem {
         int slot = currentPosition / 2;
         if (ballsLoaded[slot]) return false;
 
-        // Enable light for detection
         setIntakeSensorLight(true);
 
         double distance = colorSensor1.getDistance(DistanceUnit.MM);
@@ -770,47 +699,38 @@ public class Spindexer implements Subsystem {
         return currentPosition;
     }
 
-    /**
-     * Get current virtual ticks (for compatibility with motor mode telemetry)
-     */
-    public double getCurrentTicks() {
-        return virtualPositionDegrees * SpindexerConstants.VIRTUAL_TICKS_PER_DEGREE;
-    }
-
-    /**
-     * Get current virtual position in degrees
-     */
-    public double getVirtualPositionDegrees() {
-        return virtualPositionDegrees;
+    public double getCurrentTicks_Public() {
+        return getCurrentTicks();
     }
 
     public BallColor getLastDetectedColor() {
         return lastDetectedColor;
     }
 
+    public double getCurrentPower() {
+        return currentPower;
+    }
+
     // ===== LOW-LEVEL CONTROL =====
 
-    /**
-     * Stop the spindexer
-     */
     public void stop() {
-        setServoPower(0);
+        if (motor != null) motor.setPower(0);
+        currentPower = 0;
         isMoving = false;
         isSettling = false;
         isHoming = false;
-        moveDirection = 0;
     }
 
-    /**
-     * Manual spin (for testing or clearing jams)
-     */
     public void spin(double power) {
+        if (motor == null) return;
+
         if (Math.abs(power) > 0.1) {
-            setServoPower(power);
-            // Update virtual position estimate based on time
-            // This is approximate since we don't have feedback
+            motor.setPower(power * SpindexerConstants.MAX_POWER);
+            currentPower = power;
+            isMoving = false;  // Manual control, not position control
         } else {
-            setServoPower(0);
+            motor.setPower(0);
+            currentPower = 0;
         }
     }
 
@@ -818,13 +738,14 @@ public class Spindexer implements Subsystem {
 
     private void updateTelemetry() {
         try {
-            ActiveOpMode.telemetry().addData("--- SPINDEXER (CR Servo) ---", "");
+            ActiveOpMode.telemetry().addData("--- SPINDEXER (Motor) ---", "");
             ActiveOpMode.telemetry().addData("Homed", isHomed ? "YES" : "NO");
             ActiveOpMode.telemetry().addData("Position", "%d (%s)",
                     currentPosition, isAtIntakePosition() ? "INTAKE" : "SHOOTER");
             ActiveOpMode.telemetry().addData("Target Position", targetPosition);
-            ActiveOpMode.telemetry().addData("Virtual Degrees", "%.1f°", virtualPositionDegrees);
-            ActiveOpMode.telemetry().addData("Servo Power", "%.2f", currentPower);
+            ActiveOpMode.telemetry().addData("Encoder Ticks", "%.1f", getCurrentTicks());
+            ActiveOpMode.telemetry().addData("Target Ticks", "%.1f", targetTicks);
+            ActiveOpMode.telemetry().addData("Motor Power", "%.2f", currentPower);
             ActiveOpMode.telemetry().addData("At Position", atPosition() ? "YES" : "NO");
             ActiveOpMode.telemetry().addData("Is Moving", isMoving ? "YES" : "NO");
 

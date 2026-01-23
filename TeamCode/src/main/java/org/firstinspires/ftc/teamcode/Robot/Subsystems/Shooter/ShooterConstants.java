@@ -4,16 +4,8 @@ import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants;
 
 public class ShooterConstants {
     // ===== MOTOR CONFIGURATION =====
-    public static final String SHOOTER_MOTOR_1_NAME = "Sh1";
-    public static final String SHOOTER_MOTOR_2_NAME = "Sh2";
-
-    public static final boolean MOTOR_1_INVERTED = true;
-    public static final boolean MOTOR_2_INVERTED = false;  // Usually opposite direction
-
-    // Legacy names for backwards compatibility
-    public static final String shootername1 = SHOOTER_MOTOR_1_NAME;
-    public static final boolean shootername1inverted = MOTOR_1_INVERTED;
-    public static final boolean shootername2inverted = MOTOR_2_INVERTED;
+    public static final String SHOOTER_MOTOR_NAME = "Sh1";
+    public static final boolean MOTOR_INVERTED = true;
 
     // ===== HOOD SERVO CONFIGURATION =====
     public static final String HOOD_SERVO_1_NAME = "hoodServo1";
@@ -106,5 +98,3 @@ public class ShooterConstants {
         return (rpm - VisionConstants.BASE_RPM) / VisionConstants.RPM_PER_INCH;
     }
 }
-
-

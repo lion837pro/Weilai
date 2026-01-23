@@ -21,9 +21,8 @@ public class Shooter implements Subsystem {
     private VelocityProfileController controller;
     private SlewRateLimiter slewRateLimiter;
 
-    // Shooter motors (2 motors)
-    private MotorEx motor1;
-    private MotorEx motor2;
+    // Shooter motor (single motor)
+    private MotorEx motor;
 
     // Hood servos (2 servos for angle adjustment)
     private Servo hoodServo1;
@@ -36,35 +35,23 @@ public class Shooter implements Subsystem {
     private double rawPower = 0;
     private double currentHoodPosition = ShooterConstants.HOOD_DEFAULT_POSITION;
 
-    // Power efficiency: track if motors are idle for float mode
+    // Power efficiency: track if motor is idle for float mode
     private boolean isIdle = true;
 
     private Command defaultCommand = new NullCommand();
 
     @Override
     public void initialize() {
-        // Initialize motor 1
+        // Initialize motor
         try {
-            this.motor1 = new MotorEx(ShooterConstants.SHOOTER_MOTOR_1_NAME);
-            if (ShooterConstants.MOTOR_1_INVERTED) {
-                motor1.reversed();
+            this.motor = new MotorEx(ShooterConstants.SHOOTER_MOTOR_NAME);
+            if (ShooterConstants.MOTOR_INVERTED) {
+                motor.reversed();
             }
-            motor1.brakeMode();
+            motor.brakeMode();
         } catch (Exception e) {
-            this.motor1 = null;
-            ActiveOpMode.telemetry().addData("Shooter Motor 1", "NOT FOUND");
-        }
-
-        // Initialize motor 2
-        try {
-            this.motor2 = new MotorEx(ShooterConstants.SHOOTER_MOTOR_2_NAME);
-            if (ShooterConstants.MOTOR_2_INVERTED) {
-                motor2.reversed();
-            }
-            motor2.brakeMode();
-        } catch (Exception e) {
-            this.motor2 = null;
-            ActiveOpMode.telemetry().addData("Shooter Motor 2", "NOT FOUND");
+            this.motor = null;
+            ActiveOpMode.telemetry().addData("Shooter Motor", "NOT FOUND");
         }
 
         // Initialize hood servo 1
@@ -188,9 +175,8 @@ public class Shooter implements Subsystem {
             ActiveOpMode.telemetry().addData("Servo2", hoodServo2 != null ? "OK" : "NOT FOUND");
 
             // G. Motor status
-            ActiveOpMode.telemetry().addData("--- MOTORS ---", "");
-            ActiveOpMode.telemetry().addData("Motor1", motor1 != null ? "OK" : "NOT FOUND");
-            ActiveOpMode.telemetry().addData("Motor2", motor2 != null ? "OK" : "NOT FOUND");
+            ActiveOpMode.telemetry().addData("--- MOTOR ---", "");
+            ActiveOpMode.telemetry().addData("Motor", motor != null ? "OK" : "NOT FOUND");
 
             // H. Turret-Shooter interlock status
             ActiveOpMode.telemetry().addData("--- TURRET LOCK ---", "");
@@ -203,17 +189,8 @@ public class Shooter implements Subsystem {
     }
 
     public double getVelocity(){
-        // Average velocity from both motors
-        double vel1 = (motor1 != null) ? motor1.getVelocity() : 0;
-        double vel2 = (motor2 != null) ? motor2.getVelocity() : 0;
-
-        // If only one motor exists, return that velocity
-        if (motor1 == null && motor2 == null) return 0;
-        if (motor1 == null) return vel2;
-        if (motor2 == null) return vel1;
-
-        // Return average of both motors
-        return (vel1 + vel2) / 2.0;
+        if (motor == null) return 0;
+        return motor.getVelocity();
     }
 
     public void toVelocity(double velocity){
@@ -228,25 +205,23 @@ public class Shooter implements Subsystem {
     private void setPower(double power) {
         this.currentPower = power;
 
+        if (motor == null) return;
+
         // Power efficiency: switch to float mode when idle
         if (Math.abs(power) < 0.01) {
             if (!isIdle) {
                 // Switch to float mode for power savings when stopping
-                if (motor1 != null) motor1.floatMode();
-                if (motor2 != null) motor2.floatMode();
+                motor.floatMode();
                 isIdle = true;
             }
-            if (motor1 != null) motor1.setPower(0);
-            if (motor2 != null) motor2.setPower(0);
+            motor.setPower(0);
         } else {
             if (isIdle) {
                 // Switch back to brake mode when running for better control
-                if (motor1 != null) motor1.brakeMode();
-                if (motor2 != null) motor2.brakeMode();
+                motor.brakeMode();
                 isIdle = false;
             }
-            if (motor1 != null) motor1.setPower(power);
-            if (motor2 != null) motor2.setPower(power);
+            motor.setPower(power);
         }
     }
 

@@ -9,7 +9,7 @@ import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants;
  * - Positions 0, 2, 4 are aligned with the INTAKE (ball loading positions)
  * - Positions 1, 3, 5 are aligned with the SHOOTER (ball firing positions)
  *
- * HARDWARE: 3 servos in a gearbox (synchronized movement)
+ * HARDWARE: 312 RPM motor with encoder for position control
  *
  * Physical layout (top view):
  *           SHOOTER
@@ -25,65 +25,36 @@ import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants;
 public class SpindexerConstants {
 
     // ===== HARDWARE NAMES =====
-    public static final String SERVO_1_NAME = "spinServo1";  // First servo in gearbox
-    public static final String SERVO_2_NAME = "spinServo2";  // Second servo in gearbox
-    public static final String SERVO_3_NAME = "spinServo3";  // Third servo in gearbox
+    public static final String MOTOR_NAME = "spin";  // Motor name for spindexer
     public static final String LIMIT_SWITCH_NAME = "spindexerLimit";  // Magnetic limit switch for homing
     public static final String COLOR_SENSOR_1_NAME = "colorS1";  // Detects ball at intake
     public static final String COLOR_SENSOR_2_NAME = "colorS2";  // Secondary sensor (optional)
-
-    // ===== LEGACY MOTOR NAME (for backwards compatibility) =====
-    public static final String spindexer = "spin";  // Motor name if using motor instead of servos
 
     // ===== LIMIT SWITCH CONFIGURATION =====
     // Polarity: true = active-low (triggered when LOW), false = active-high (triggered when HIGH)
     public static final boolean LIMIT_SWITCH_ACTIVE_LOW = true;
 
-    // ===== SERVO CONFIGURATION =====
-    // Use servos (true) or motor (false)
-    public static final boolean USE_SERVOS = true;
+    // ===== MOTOR CONFIGURATION =====
+    public static final boolean MOTOR_INVERTED = false;  // Set to true to reverse motor direction
 
-    // Servo direction (set to true to reverse servo direction)
-    public static final boolean SERVO_1_REVERSED = false;
-    public static final boolean SERVO_2_REVERSED = false;
-    public static final boolean SERVO_3_REVERSED = false;
+    // ===== MOTOR SPECS (312 RPM GoBilda Yellow Jacket) =====
+    // 312 RPM motor has 537.7 PPR (pulses per revolution at output shaft)
+    public static final double TICKS_PER_MOTOR_REV = 537.7;
+
+    // Gear ratio from motor to spindexer (if any external gearing)
+    public static final double GEAR_RATIO = 1.0;  // 1:1 direct drive, adjust if geared
+
+    // Final ticks per spindexer revolution
+    public static final double TICKS_PER_SPINDEXER_REV = TICKS_PER_MOTOR_REV * GEAR_RATIO;
+    public static final double TICKS_PER_DEGREE = TICKS_PER_SPINDEXER_REV / 360.0;
 
     // ===== POSITION PRESETS =====
-    // Position indices (defined first as they're used by other constants)
     public static final int POSITION_COUNT = 6;
     public static final int SLOTS_COUNT = 3;  // Number of ball slots
 
     // 6 positions at 60 degree intervals
     public static final double DEGREES_PER_POSITION = 60.0;
-
-    // Virtual ticks for position tracking (compatible with motor mode code)
-    // Using 600 ticks per revolution for easy math (100 ticks per position)
-    public static final double VIRTUAL_TICKS_PER_REV = 600.0;
-    public static final double VIRTUAL_TICKS_PER_POSITION = VIRTUAL_TICKS_PER_REV / POSITION_COUNT;  // 100 ticks
-    public static final double VIRTUAL_TICKS_PER_DEGREE = VIRTUAL_TICKS_PER_REV / 360.0;
-
-    // Legacy motor constants (kept for compatibility)
-    public static final double TICKS_PER_SPINDEXER_REV = VIRTUAL_TICKS_PER_REV;
-    public static final double TICKS_PER_DEGREE = VIRTUAL_TICKS_PER_DEGREE;
-
-    // ===== CONTINUOUS ROTATION SERVO CONFIGURATION =====
-    // GoBilda servos in continuous mode: 0.0 = full reverse, 0.5 = stop, 1.0 = full forward
-    public static final double CR_SERVO_STOP = 0.5;        // Servo value for stopped
-    public static final double CR_SERVO_FORWARD = 1.0;     // Servo value for full forward
-    public static final double CR_SERVO_REVERSE = 0.0;     // Servo value for full reverse
-
-    // Time to rotate 60 degrees (one position) at full power - TUNE THIS VALUE
-    // Measured empirically: run servo at full power and time how long for 60 degrees
-    public static final double MS_PER_POSITION_FULL_POWER = 200.0;  // milliseconds per 60 degrees at full speed
-
-    // Default rotation power for indexing (0.0 to 1.0, will be scaled)
-    public static final double CR_SERVO_INDEX_POWER = 0.6;  // 60% power for controlled movement
-
-    // Time per position adjusted for indexing power
-    public static final double MS_PER_POSITION = MS_PER_POSITION_FULL_POWER / CR_SERVO_INDEX_POWER;
-
-    // Degrees per millisecond at full power (for calculations)
-    public static final double DEGREES_PER_MS_FULL_POWER = DEGREES_PER_POSITION / MS_PER_POSITION_FULL_POWER;
+    public static final double TICKS_PER_POSITION = DEGREES_PER_POSITION * TICKS_PER_DEGREE;
 
     // ===== SHOOTING SEQUENCE TIMING =====
     public static final long FEED_DURATION_MS = 300;  // Time to feed ball into shooter (milliseconds)
@@ -102,7 +73,7 @@ public class SpindexerConstants {
      * Get encoder ticks for a specific position index (0-5)
      */
     public static double getPositionTicks(int positionIndex) {
-        return positionIndex * DEGREES_PER_POSITION * TICKS_PER_DEGREE;
+        return positionIndex * TICKS_PER_POSITION;
     }
 
     /**
@@ -119,21 +90,18 @@ public class SpindexerConstants {
         return (slotIndex * 2) + 1;  // 0 -> 1, 1 -> 3, 2 -> 5
     }
 
-    // ===== CONTROL GAINS =====
-    // Tuned Position PID to eliminate oscillation
-    public static final double kP = 0.01;      // Proportional - reduced to prevent overshoot
-    public static final double kI = 0.0;       // Integral - disabled to prevent oscillation
-    public static final double kD = 0.008;     // Derivative - increased 4x for strong damping
+    // ===== CONTROL GAINS (Position PID) =====
+    public static final double kP = 0.008;     // Proportional gain
+    public static final double kI = 0.0;       // Integral gain (disabled to prevent oscillation)
+    public static final double kD = 0.0004;    // Derivative gain for damping
 
-    // Feedforward for consistent motion
+    // Feedforward
     public static final double kS = 0.05;  // Static friction compensation
-    public static final double kV = 0.0;   // Velocity feedforward (not needed for position control)
 
     // ===== MOTION CONSTRAINTS =====
-    public static final double MAX_POWER = 0.8;           // Reduced to prevent overshoot
-    public static final double HOMING_POWER = 0.3;        // Slow power for homing routine
-    public static final double POSITION_TOLERANCE = 8.0;  // Wider tolerance to prevent micro-corrections
-    public static final double VELOCITY_TOLERANCE = 10.0; // Ticks/sec tolerance for "stopped"
+    public static final double MAX_POWER = 0.7;           // Maximum motor power
+    public static final double HOMING_POWER = 0.25;       // Slow power for homing routine
+    public static final double POSITION_TOLERANCE = 15.0; // Encoder ticks tolerance for "at position"
 
     // ===== MECHANICAL OFFSET =====
     // Offset angle to move ball away from shooter wheel during spin-up
@@ -145,43 +113,31 @@ public class SpindexerConstants {
     // ===== TIMING =====
     public static final double HOMING_TIMEOUT_MS = 3000;     // Max time to search for home
     public static final double INDEX_TIMEOUT_MS = 1000;      // Max time to move to position
-    public static final double SETTLE_TIME_MS = 100;         // Time to wait after reaching position for stabilization
-    public static final double BALL_DETECT_DEBOUNCE_MS = 50; // Debounce for color sensor readings
+    public static final double SETTLE_TIME_MS = 50;          // Time to wait after reaching position
 
     // ===== COLOR SENSOR THRESHOLDS =====
-    // Sensor gain - multiplier for color readings (1.0 = no gain, higher = brighter)
-    // Recommended range: 1-15 depending on lighting conditions
     public static final float COLOR_SENSOR_GAIN = 2.0f;
-
-    // Proximity threshold for ball detection (MM)
-    public static final double COLOR_PROXIMITY_THRESHOLD = 45;  // Ball present if < this distance
+    public static final double COLOR_PROXIMITY_THRESHOLD = 45;  // Ball present if < this distance (mm)
 
     // ===== BALL COLOR DETECTION THRESHOLDS =====
-    // These values need tuning based on your specific color sensor and ball colors
-    // The color sensor returns RGB values (0-255 range typically)
-
     // GREEN ball detection thresholds
-    // Green balls typically have high green channel and lower red/blue
-    public static final int GREEN_MIN_G = 100;  // Minimum green channel value
-    public static final int GREEN_MAX_R = 150;  // Maximum red channel for green ball
-    public static final int GREEN_MAX_B = 150;  // Maximum blue channel for green ball
-    public static final double GREEN_RATIO_THRESHOLD = 1.2;  // G must be this much higher than R and B
+    public static final int GREEN_MIN_G = 100;
+    public static final int GREEN_MAX_R = 150;
+    public static final int GREEN_MAX_B = 150;
+    public static final double GREEN_RATIO_THRESHOLD = 1.2;
 
     // PURPLE ball detection thresholds
-    // Purple balls have high red and blue, lower green
-    public static final int PURPLE_MIN_R = 80;   // Minimum red channel value
-    public static final int PURPLE_MIN_B = 80;   // Minimum blue channel value
-    public static final int PURPLE_MAX_G = 120;  // Maximum green channel for purple ball
-    public static final double PURPLE_RB_MIN_RATIO = 0.7;  // R/B ratio should be close (0.7-1.4)
+    public static final int PURPLE_MIN_R = 80;
+    public static final int PURPLE_MIN_B = 80;
+    public static final int PURPLE_MAX_G = 120;
+    public static final double PURPLE_RB_MIN_RATIO = 0.7;
     public static final double PURPLE_RB_MAX_RATIO = 1.4;
 
     /**
      * Determine ball color from RGB values.
-     * Uses VisionConstants.BallColor enum.
      */
     public static VisionConstants.BallColor detectBallColor(int red, int green, int blue) {
         // Check for GREEN ball first
-        // Green has high green channel, and green is significantly higher than red and blue
         if (green >= GREEN_MIN_G &&
             red <= GREEN_MAX_R &&
             blue <= GREEN_MAX_B &&
@@ -191,23 +147,19 @@ public class SpindexerConstants {
         }
 
         // Check for PURPLE ball
-        // Purple has high red and blue, lower green
         if (red >= PURPLE_MIN_R &&
             blue >= PURPLE_MIN_B &&
             green <= PURPLE_MAX_G) {
-            // Check that red and blue are close to each other (ratio check)
             double rbRatio = (double) red / Math.max(blue, 1);
             if (rbRatio >= PURPLE_RB_MIN_RATIO && rbRatio <= PURPLE_RB_MAX_RATIO) {
                 return VisionConstants.BallColor.PURPLE;
             }
         }
 
-        // Can't determine color
         return VisionConstants.BallColor.UNKNOWN;
     }
 
     // ===== DIRECTION OPTIMIZATION =====
-    // When indexing, choose shortest rotation direction
     public static final boolean OPTIMIZE_ROTATION_DIRECTION = true;
 
     // ===== DEBUG =====
