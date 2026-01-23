@@ -35,6 +35,7 @@ public class IntakeCommands {
                 .requires(intake)
                 .setStart(() -> intake.MoveIn(0))
                 .setUpdate(() -> {})
+                .setStop(interrupted -> intake.MoveIn(0))
                 .setIsDone(() -> true)  // Complete immediately after stopping
                 .setInterruptible(true);
     }
@@ -48,6 +49,10 @@ public class IntakeCommands {
                 .requires(spindexer)
                 .requires(intake)
                 .setStart(() -> {
+                    intake.MoveIn(0);
+                    spindexer.stop();
+                })
+                .setStop(interrupted -> {
                     intake.MoveIn(0);
                     spindexer.stop();
                 })

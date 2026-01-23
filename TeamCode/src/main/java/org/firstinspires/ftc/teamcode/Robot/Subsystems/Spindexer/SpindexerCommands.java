@@ -106,6 +106,7 @@ public class SpindexerCommands {
                 .named("stopSpindexer")
                 .requires(spindexer)
                 .setStart(() -> spindexer.stop())
+                .setStop(interrupted -> spindexer.stop())
                 .setIsDone(() -> true)
                 .setInterruptible(true);
     }

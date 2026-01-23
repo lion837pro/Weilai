@@ -98,6 +98,7 @@ public class ShooterCommands {
                 .requires(shooter)
                 .setStart(() -> shooter.stop())
                 .setUpdate(() -> shooter.stop())
+                .setStop(interrupted -> shooter.stop())
                 .setIsDone(() -> true)
                 .setInterruptible(true);
     }
