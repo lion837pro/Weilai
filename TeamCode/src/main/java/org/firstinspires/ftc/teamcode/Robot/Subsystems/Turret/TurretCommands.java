@@ -113,6 +113,8 @@ public class TurretCommands {
      * Auto-align turret to AprilTag using Limelight vision.
      * Runs continuously until interrupted (for TeleOp button hold).
      * Uses the chassis's Limelight for vision data.
+     * When stopped, turret returns to center position by turning the opposite direction
+     * to prevent cable twisting.
      */
     public static Command autoAlign(Turret turret, SuperChassis chassis) {
         return new LambdaCommand()
@@ -143,6 +145,8 @@ public class TurretCommands {
                 })
                 .setStop(interrupted -> {
                     turret.stopAutoAlign();
+                    // Return to center by turning the opposite direction to unwind cables
+                    turret.returnToCenterUnwinding();
                 })
                 .setIsDone(() -> false)  // Run until interrupted
                 .setInterruptible(true);
@@ -151,6 +155,7 @@ public class TurretCommands {
     /**
      * Auto-align turret to any visible AprilTag (not just alignment tags).
      * Useful for testing or special scenarios.
+     * When stopped, returns to center by turning the opposite direction.
      */
     public static Command autoAlignAnyTag(Turret turret, SuperChassis chassis) {
         return new LambdaCommand()
@@ -169,6 +174,8 @@ public class TurretCommands {
                 })
                 .setStop(interrupted -> {
                     turret.stopAutoAlign();
+                    // Return to center by turning the opposite direction to unwind cables
+                    turret.returnToCenterUnwinding();
                 })
                 .setIsDone(() -> false)
                 .setInterruptible(true);
@@ -177,6 +184,7 @@ public class TurretCommands {
     /**
      * Auto-align with joystick fallback.
      * If no valid target, allow manual control.
+     * When stopped, returns to center by turning the opposite direction.
      */
     public static Command autoAlignWithFallback(Turret turret, SuperChassis chassis,
                                                   DoubleSupplier manualPower) {
@@ -209,7 +217,8 @@ public class TurretCommands {
                 })
                 .setStop(interrupted -> {
                     turret.stopAutoAlign();
-                    turret.stop();
+                    // Return to center by turning the opposite direction to unwind cables
+                    turret.returnToCenterUnwinding();
                 })
                 .setIsDone(() -> false)
                 .setInterruptible(true);
@@ -253,6 +262,7 @@ public class TurretCommands {
      * Target a fixed field position using odometry.
      * Turret will continuously track the target as the robot moves.
      * Uses robot pose from chassis odometry.
+     * When stopped, returns to center by turning the opposite direction.
      *
      * @param turret The turret subsystem
      * @param chassis The chassis (provides robot pose from odometry)
@@ -278,6 +288,8 @@ public class TurretCommands {
                 })
                 .setStop(interrupted -> {
                     turret.stopOdometryTargeting();
+                    // Return to center by turning the opposite direction to unwind cables
+                    turret.returnToCenterUnwinding();
                 })
                 .setIsDone(() -> false)  // Run until interrupted
                 .setInterruptible(true);
@@ -339,7 +351,8 @@ public class TurretCommands {
                 .setStop(interrupted -> {
                     turret.stopAutoAlign();
                     turret.stopOdometryTargeting();
-                    turret.stop();
+                    // Return to center by turning the opposite direction to unwind cables
+                    turret.returnToCenterUnwinding();
                 })
                 .setIsDone(() -> false)
                 .setInterruptible(true);

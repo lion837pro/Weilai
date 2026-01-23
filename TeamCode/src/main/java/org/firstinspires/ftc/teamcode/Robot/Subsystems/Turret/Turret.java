@@ -31,6 +31,7 @@ public class Turret implements Subsystem {
     private boolean hasTarget = false;        // Position control active?
     private boolean isAligning = false;       // Vision alignment active?
     private boolean isOdometryTargeting = false; // Odometry-based targeting active?
+    private boolean isReturningToCenter = false; // Returning to center after tracking?
 
     // Control state
     private double targetTicks = 0;           // Target encoder position
@@ -143,6 +144,37 @@ public class Turret implements Subsystem {
     }
 
     /**
+     * Return to center while unwinding cables.
+     * If turret is at positive angle (turned right/clockwise), returns by turning left (counter-clockwise).
+     * If turret is at negative angle (turned left/counter-clockwise), returns by turning right (clockwise).
+     * This prevents cable twisting from accumulated turns.
+     */
+    public void returnToCenterUnwinding() {
+        if (motor == null) return;
+
+        // Start position control to center
+        targetAngle = TurretConstants.POSITION_CENTER;
+        targetTicks = TurretConstants.degreesToTicks(TurretConstants.POSITION_CENTER);
+
+        // Reset PID state
+        lastError = 0.0;
+        lastPIDTime = 0;
+
+        hasTarget = true;
+        isAligning = false;
+        isOdometryTargeting = false;
+        isReturningToCenter = true;
+        moveTimer.reset();
+    }
+
+    /**
+     * Check if turret is currently returning to center
+     */
+    public boolean isReturningToCenter() {
+        return isReturningToCenter;
+    }
+
+    /**
      * Adjust turret angle by a delta amount
      */
     public void adjustAngle(double deltaDegrees) {
@@ -162,6 +194,11 @@ public class Turret implements Subsystem {
         // Check if at position
         if (Math.abs(error) <= TurretConstants.POSITION_TOLERANCE) {
             setPower(0);
+            // Clear return-to-center flag when we reach center
+            if (isReturningToCenter) {
+                isReturningToCenter = false;
+                hasTarget = false;
+            }
             return;
         }
 
@@ -412,6 +449,7 @@ public class Turret implements Subsystem {
         hasTarget = false;
         isAligning = false;
         isOdometryTargeting = false;
+        isReturningToCenter = false;
         setPower(0);
     }
 
@@ -554,10 +592,18 @@ public class Turret implements Subsystem {
             ActiveOpMode.telemetry().addData("Power", "%.2f", currentPower);
 
             String mode = "Manual";
-            if (hasTarget) mode = "Position";
+            if (isReturningToCenter) mode = "Returning";
+            else if (hasTarget) mode = "Position";
             else if (isAligning) mode = "Vision";
             else if (isOdometryTargeting) mode = "Odometry";
             ActiveOpMode.telemetry().addData("Mode", mode);
+
+            // Show turret direction for shooter interlock
+            String direction = "Static";
+            if (isTurningClockwise()) direction = "CW";
+            else if (isTurningCounterClockwise()) direction = "CCW";
+            ActiveOpMode.telemetry().addData("Direction", direction);
+            ActiveOpMode.telemetry().addData("Shooter OK", canShooterRev() ? "YES" : "NO (CCW)");
 
             ActiveOpMode.telemetry().addData("At Position", atPosition() ? "YES" : "NO");
 
