@@ -219,7 +219,10 @@ public class Shooter implements Subsystem {
     public void toVelocity(double velocity){
         this.hasTarget = true;
         this.open = false;
-        controller.setTarget(velocity);
+        // Only update target if it changed to preserve integral accumulation
+        if (Math.abs(controller.getTarget() - velocity) > 1.0) {
+            controller.setTarget(velocity);
+        }
     }
 
     private void setPower(double power) {

@@ -317,6 +317,7 @@ public class Turret implements Subsystem {
         hasTarget = false;
         isReturningToCenter = false;  // Cancel any return-to-center in progress
         lastError = 0;
+        lastAlignError = 0;  // Reset to prevent derivative spike when switching modes
     }
 
     /**
