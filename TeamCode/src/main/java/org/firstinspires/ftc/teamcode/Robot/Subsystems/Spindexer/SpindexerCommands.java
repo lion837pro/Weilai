@@ -8,6 +8,7 @@ import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants.Bal
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.Intake;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.LED.RobotFeedback;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter.Shooter;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter.ShooterEmergency;
 
 import java.util.function.DoubleSupplier;
 
@@ -960,6 +961,118 @@ public class SpindexerCommands {
                     }
                 })
                 .setIsDone(() -> true)
+                .setInterruptible(true);
+    }
+
+    // ========================================================================
+    // EMERGENCY SHOOTER SMART FEED (for ShooterEmergency subsystem)
+    // ========================================================================
+
+    /**
+     * Continuous smart feed for EMERGENCY SHOOTER - uses isSpinning() instead of atSetpoint()
+     */
+    public static Command smartFeedNoIntakeContinuous(ShooterEmergency shooter, Spindexer spindexer, RobotFeedback feedback) {
+        final ShootState[] state = {ShootState.MOVING_TO_SHOOTER};
+        final BallColor[] currentBallColor = {BallColor.UNKNOWN};
+        final ElapsedTime feedTimer = new ElapsedTime();
+        final ElapsedTime spinupTimer = new ElapsedTime();
+        final boolean[] feedTimerStarted = {false};
+
+        // For emergency shooter, wait a fixed time for spinup instead of checking RPM
+        final int SPINUP_WAIT_MS = 500;
+
+        return new LambdaCommand()
+                .named("smartFeedEmergencyContinuous")
+                .requires(spindexer)
+                .setStart(() -> {
+                    state[0] = ShootState.MOVING_TO_SHOOTER;
+                    spindexer.goToNextShooterPosition();
+                    spinupTimer.reset();
+
+                    // Get color of next ball for LED feedback
+                    int slot = getNextLoadedSlot(spindexer);
+                    if (slot >= 0) {
+                        currentBallColor[0] = spindexer.getBallColor(slot);
+                        if (feedback != null) {
+                            feedback.onShooterSpinUp(currentBallColor[0]);
+                        }
+                    }
+                })
+                .setUpdate(() -> {
+                    if (spindexer.isEmpty()) {
+                        if (feedback != null) feedback.onSpindexerEmpty();
+                        return;
+                    }
+
+                    switch (state[0]) {
+                        case MOVING_TO_SHOOTER:
+                            if (spindexer.atPosition() && spindexer.isAtShooterPosition()) {
+                                // At shooter position, wait for shooter spin-up
+                                state[0] = ShootState.WAITING_FOR_SPINUP;
+                                spinupTimer.reset();
+                            }
+                            break;
+
+                        case WAITING_FOR_SPINUP:
+                            // Emergency mode: wait fixed time OR check if spinning
+                            if (spinupTimer.milliseconds() >= SPINUP_WAIT_MS && shooter.isSpinning()) {
+                                // Shooter ready, push ball with feeder servo
+                                spindexer.feederUp();
+                                feedTimer.reset();
+                                feedTimerStarted[0] = true;
+                                if (feedback != null) {
+                                    feedback.onBallShot(currentBallColor[0]);
+                                }
+                                state[0] = ShootState.FEEDER_UP;
+                            }
+                            break;
+
+                        case FEEDER_UP:
+                            // Wait for feeder to push ball into shooter
+                            if (feedTimer.milliseconds() >= SpindexerConstants.FEEDER_MOVE_TIME_MS) {
+                                // Ball fed, bring feeder back down
+                                spindexer.feederDown();
+                                feedTimer.reset();
+                                spindexer.markCurrentSlotEmpty();
+                                state[0] = ShootState.FEEDER_DOWN;
+                            }
+                            break;
+
+                        case FEEDER_DOWN:
+                            // Wait for feeder to return
+                            if (feedTimer.milliseconds() >= SpindexerConstants.FEEDER_MOVE_TIME_MS) {
+                                // Move to next ball
+                                state[0] = ShootState.NEXT_BALL;
+                            }
+                            break;
+
+                        case NEXT_BALL:
+                            // Move spindexer to next loaded position
+                            spindexer.goToNextShooterPosition();
+
+                            // Get color of next ball
+                            int slot = getNextLoadedSlot(spindexer);
+                            if (slot >= 0) {
+                                currentBallColor[0] = spindexer.getBallColor(slot);
+                                if (feedback != null) {
+                                    feedback.onShooterSpinUp(currentBallColor[0]);
+                                }
+                            }
+
+                            state[0] = ShootState.MOVING_TO_SHOOTER;
+                            break;
+                    }
+
+                    // Telemetry
+                    try {
+                        ActiveOpMode.telemetry().addData("Emergency Feed State", state[0].name());
+                    } catch (Exception e) { }
+                })
+                .setStop(interrupted -> {
+                    spindexer.stop();
+                    spindexer.feederDown();
+                })
+                .setIsDone(() -> false)
                 .setInterruptible(true);
     }
 }

@@ -9,8 +9,8 @@ import org.firstinspires.ftc.teamcode.Robot.Hardware.REV312010;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.ChassisConstants;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.SuperChassis;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.LED.RobotFeedback;
-import org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter.Shooter;
-import org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter.ShooterCommands;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter.ShooterEmergency;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter.ShooterEmergencyCommands;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Spindexer.Spindexer;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Spindexer.SpindexerCommands;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Turret.Turret;
@@ -23,10 +23,11 @@ import dev.nextftc.extensions.pedro.PedroComponent;
 import dev.nextftc.ftc.NextFTCOpMode;
 
 /**
- * EMERGENCY TELEOP MODE - NO INTAKE, NO LIMELIGHT
- * For competition when intake and/or Limelight are broken/unavailable.
+ * EMERGENCY TELEOP MODE - NO INTAKE, NO LIMELIGHT, REV MOTOR SHOOTER
+ * For competition when intake/Limelight are broken and using backup REV motor.
  * Human player feeds balls directly into the spindexer.
  * Turret is manually controlled (no auto-aim).
+ * Shooter uses simple power control (no PID).
  *
  * TWO DRIVER CONFIGURATION:
  * - DRIVER 1 (gamepad1): Full chassis control
@@ -44,13 +45,13 @@ import dev.nextftc.ftc.NextFTCOpMode;
  * === DRIVER 2 CONTROLS (gamepad2) ===
  * A = Prepare for human feed (move spindexer to intake position)
  * B = Confirm ball loaded (mark current slot as loaded)
- * X = Fixed 1600 RPM shooter (spin-up only)
- * Y = Shoot at 1600 RPM (MAIN SHOOTING BUTTON)
+ * X = Medium power shooter (spin-up only)
+ * Y = Shoot at medium power (MAIN SHOOTING BUTTON)
  *
- * RB = Shoot at 1800 RPM (higher power)
+ * RB = Shoot at high power (longer distance)
  * LB = Re-zero turret (if position drifts)
  *
- * DpadUp = Reverse shooter
+ * DpadUp = Reverse shooter (slow)
  * DpadDown = Index spindexer forward
  * DpadLeft = Turret go to center
  * DpadRight = Turret go to right 45°
@@ -67,14 +68,14 @@ import dev.nextftc.ftc.NextFTCOpMode;
  * 4. Driver 2 presses B to confirm ball is loaded
  * 5. Repeat steps 2-4 until spindexer is full (3 balls max)
  * 6. Driver 2 uses left stick X to aim turret manually
- * 7. Driver 2 presses Y to shoot at 1600 RPM
+ * 7. Driver 2 presses Y to shoot
  */
 @TeleOp(name = "NO INTAKE EMERGENCY", group = "Emergency")
 public class TeleopModeNoIntakeEmergency extends NextFTCOpMode {
 
-    // Subsystems (NO INTAKE, NO LIMELIGHT AUTO-AIM!)
+    // Subsystems (EMERGENCY: NO INTAKE, NO LIMELIGHT, REV MOTOR SHOOTER!)
     private final SuperChassis chassis = SuperChassis.INSTANCE;
-    private final Shooter shooter = Shooter.INSTANCE;
+    private final ShooterEmergency shooter = ShooterEmergency.INSTANCE;
     private final Spindexer spindexer = Spindexer.INSTANCE;
     private final Turret turret = Turret.INSTANCE;
     private REV312010 led;
@@ -138,17 +139,17 @@ public class TeleopModeNoIntakeEmergency extends NextFTCOpMode {
             }
         }));
 
-        // SHOOTER CONTROLS
-        // X = Fixed 1600 RPM shooter (for spin-up only)
-        x.whenTrue(ShooterCommands.runShooterPID(shooter, 1600, feedback));
-        dpad_up.whenTrue(ShooterCommands.runShooterPID(shooter, -600));
+        // SHOOTER CONTROLS (EMERGENCY - POWER BASED)
+        // X = Medium power shooter (for spin-up only)
+        x.whenTrue(ShooterEmergencyCommands.runAtPower(shooter, 0.5, feedback));
+        dpad_up.whenTrue(ShooterEmergencyCommands.runAtPower(shooter, -0.2, feedback));
 
-        // SHOOTING SEQUENCES (NO INTAKE, FIXED RPM - NO AUTO-AIM!)
-        // Y = Shoot at 1600 RPM (MAIN SHOOTING BUTTON)
-        y.whenTrue(ShooterCommands.teleopShootNoIntake(shooter, spindexer, 1600, feedback));
+        // SHOOTING SEQUENCES (NO INTAKE, POWER BASED - NO AUTO-AIM!)
+        // Y = Shoot at medium power (MAIN SHOOTING BUTTON)
+        y.whenTrue(ShooterEmergencyCommands.shootNoIntake(shooter, spindexer, 0.5, feedback));
 
-        // RB = Shoot at higher 1800 RPM for longer distance
-        right_bumper.whenTrue(ShooterCommands.teleopShootNoIntake(shooter, spindexer, 1800, feedback));
+        // RB = Shoot at higher power for longer distance
+        right_bumper.whenTrue(ShooterEmergencyCommands.shootNoIntake(shooter, spindexer, 0.6, feedback));
 
         // LB = Re-zero turret (if position drifts during match)
         left_bumper.whenBecomesTrue(TurretCommands.zero(turret));
@@ -171,7 +172,7 @@ public class TeleopModeNoIntakeEmergency extends NextFTCOpMode {
                 () -> -gamepad2.left_stick_x));
 
         // DRIVER 2: Manual shooter with right trigger
-        shooter.setDefaultCommand(ShooterCommands.runManualShooter(shooter,
+        shooter.setDefaultCommand(ShooterEmergencyCommands.manualControl(shooter,
                 () -> gamepad2.right_trigger));
 
         // DRIVER 2: Manual spindexer with left trigger
@@ -184,7 +185,7 @@ public class TeleopModeNoIntakeEmergency extends NextFTCOpMode {
     @Override
     public void onWaitForStart() {
         // CRITICAL: Zero turret first
-        telemetry.addData("=== EMERGENCY MODE ===", "NO INTAKE / NO LIMELIGHT");
+        telemetry.addData("=== EMERGENCY MODE ===", "REV MOTOR / NO INTAKE");
         telemetry.addData("", "");
         telemetry.addData("!! IMPORTANT !!", "Position TURRET facing FORWARD");
         telemetry.addData("", "Turret will be ZEROED at current position");
@@ -266,7 +267,7 @@ public class TeleopModeNoIntakeEmergency extends NextFTCOpMode {
         if (feedback != null) feedback.update();
 
         // Telemetry
-        telemetry.addData("=== EMERGENCY MODE ===", "");
+        telemetry.addData("=== EMERGENCY MODE ===", "REV MOTOR");
 
         // Turret status
         if (!turret.isZeroed()) {
@@ -282,6 +283,7 @@ public class TeleopModeNoIntakeEmergency extends NextFTCOpMode {
         telemetry.addData("Slots", "[%s | %s | %s]", slot0, slot1, slot2);
 
         telemetry.addData("Spindexer", "%s", spindexer.isAtIntakePosition() ? "INTAKE" : "SHOOTER");
+        telemetry.addData("Shooter RPM", "%.0f", shooter.getCurrentRPM());
         telemetry.addData("", "");
         telemetry.addData("D1: Drive+Turn", "D2: Turret/Shoot");
         telemetry.addData("D2: A=Feed B=Confirm", "Y=Shoot");
