@@ -133,6 +133,20 @@ public class TeleopMode extends NextFTCOpMode {
 
     @Override
     public void onWaitForStart() {
+        // Zero turret - IMPORTANT: Position turret forward before starting!
+        telemetry.addData("=== TURRET ZEROING ===", "");
+        telemetry.addData("IMPORTANT", "Position turret FORWARD before pressing START");
+        telemetry.update();
+
+        // Zero the turret (assumes it's positioned at center)
+        turret.zero();
+
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            // Ignore
+        }
+
         // Auto-home spindexer during init (run directly, not as command)
         telemetry.addData("Spindexer", "Starting homing...");
         telemetry.addData("Limit Switch", "Raw state: " + spindexer.getLimitSwitchRawState());
@@ -165,12 +179,14 @@ public class TeleopMode extends NextFTCOpMode {
 
         if (spindexer.isAtHome()) {
             spindexer.finishHoming();
-            telemetry.addData("Spindexer", "✓ Homed successfully");
+            telemetry.addData("Spindexer", "Homed successfully");
         } else {
             spindexer.stop();
-            telemetry.addData("Spindexer", "✗ Homing timeout");
+            telemetry.addData("Spindexer", "Homing timeout");
             telemetry.addData("Check", "Limit switch connection");
         }
+
+        telemetry.addData("Turret", turret.isZeroed() ? "ZEROED" : "NOT ZEROED!");
         telemetry.update();
 
         // Give user time to see result

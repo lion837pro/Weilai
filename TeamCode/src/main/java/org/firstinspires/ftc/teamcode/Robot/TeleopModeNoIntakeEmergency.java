@@ -23,29 +23,35 @@ import dev.nextftc.extensions.pedro.PedroComponent;
 import dev.nextftc.ftc.NextFTCOpMode;
 
 /**
- * EMERGENCY TELEOP MODE - NO INTAKE
- * For competition when intake is broken/unavailable.
+ * EMERGENCY TELEOP MODE - NO INTAKE, NO LIMELIGHT
+ * For competition when intake and/or Limelight are broken/unavailable.
  * Human player feeds balls directly into the spindexer.
+ * Turret is manually controlled (no auto-aim).
+ *
+ * BEFORE STARTING:
+ * 1. Position turret pointing FORWARD (center)
+ * 2. Position spindexer with slot at limit switch
  *
  * Controls:
  * A = Prepare for human feed (move spindexer to intake position)
  * B = Confirm ball loaded (mark current slot as loaded)
- * X = Fixed 1600 RPM shooter
- * Y = Shoot with auto-aim (MAIN SHOOTING BUTTON)
+ * X = Fixed 1600 RPM shooter (spin-up only)
+ * Y = Shoot at 1600 RPM (MAIN SHOOTING BUTTON)
  *
- * RB = Manual shoot at 1600 RPM (hold)
- * LB = Turret auto-align
+ * RB = Shoot at 1800 RPM (higher power)
+ * LB = Re-zero turret (if position drifts)
  *
  * DpadUp = Reverse shooter
  * DpadDown = Index spindexer forward
- * DpadLeft = Reset color sort tag
+ * DpadLeft = Turret go to center
+ * DpadRight = Turret go to right 45°
  * Options = Reset heading
  *
  * RT = Manual shooter power
  * LT = Manual spindexer power
  *
  * Left stick = Drive (field-oriented)
- * Right stick = Turn
+ * Right stick X = TURRET MANUAL CONTROL
  *
  * WORKFLOW:
  * 1. Driver positions robot near human player station
@@ -53,12 +59,13 @@ import dev.nextftc.ftc.NextFTCOpMode;
  * 3. Human player inserts ball into spindexer slot
  * 4. Press B to confirm ball is loaded
  * 5. Repeat steps 2-4 until spindexer is full (3 balls max)
- * 6. Position robot and press Y to shoot with auto-aim
+ * 6. Use right stick to aim turret manually
+ * 7. Press Y to shoot at 1600 RPM
  */
 @TeleOp(name = "NO INTAKE EMERGENCY", group = "Emergency")
 public class TeleopModeNoIntakeEmergency extends NextFTCOpMode {
 
-    // Subsystems (NO INTAKE!)
+    // Subsystems (NO INTAKE, NO LIMELIGHT AUTO-AIM!)
     private final SuperChassis chassis = SuperChassis.INSTANCE;
     private final Shooter shooter = Shooter.INSTANCE;
     private final Spindexer spindexer = Spindexer.INSTANCE;
@@ -69,7 +76,7 @@ public class TeleopModeNoIntakeEmergency extends NextFTCOpMode {
     // Buttons
     private Button a, b, x, y;
     private Button right_bumper, left_bumper;
-    private Button dpad_up, dpad_down, dpad_left;
+    private Button dpad_up, dpad_down, dpad_left, dpad_right;
     private Button options;
 
     // Constructor - Note: NO intake component!
@@ -103,10 +110,10 @@ public class TeleopModeNoIntakeEmergency extends NextFTCOpMode {
         this.dpad_up = button(() -> gamepad1.dpad_up);
         this.dpad_down = button(() -> gamepad1.dpad_down);
         this.dpad_left = button(() -> gamepad1.dpad_left);
+        this.dpad_right = button(() -> gamepad1.dpad_right);
 
         // System controls
         options.whenBecomesTrue(DriveCommands.resetHeading(chassis));
-        dpad_left.whenBecomesTrue(new InstantCommand("Reset Color Sort Tag", chassis::resetColorSortTag));
 
         // HUMAN PLAYER FEEDING CONTROLS
         // A = Move spindexer to intake position (prepare for human to insert ball)
@@ -122,27 +129,37 @@ public class TeleopModeNoIntakeEmergency extends NextFTCOpMode {
         }));
 
         // SHOOTER CONTROLS
-        // X = Fixed 1600 RPM shooter (for spin-up)
+        // X = Fixed 1600 RPM shooter (for spin-up only)
         x.whenTrue(ShooterCommands.runShooterPID(shooter, 1600, feedback));
         dpad_up.whenTrue(ShooterCommands.runShooterPID(shooter, -600));
 
-        // SHOOTING SEQUENCES (NO INTAKE!)
-        // Y = Shoot with auto-aim (MAIN SHOOTING BUTTON)
-        y.whenTrue(ShooterCommands.teleopShootNoIntakeAutoAim(shooter, spindexer, chassis, feedback));
+        // SHOOTING SEQUENCES (NO INTAKE, FIXED RPM - NO AUTO-AIM!)
+        // Y = Shoot at 1600 RPM (MAIN SHOOTING BUTTON)
+        y.whenTrue(ShooterCommands.teleopShootNoIntake(shooter, spindexer, 1600, feedback));
 
-        // RB = Manual shoot at fixed 1600 RPM (hold)
-        right_bumper.whenTrue(ShooterCommands.teleopShootNoIntake(shooter, spindexer, 1600, feedback));
+        // RB = Shoot at higher 1800 RPM for longer distance
+        right_bumper.whenTrue(ShooterCommands.teleopShootNoIntake(shooter, spindexer, 1800, feedback));
 
-        // Turret auto-align (LB)
-        left_bumper.whenTrue(TurretCommands.autoAlign(turret, chassis));
+        // LB = Re-zero turret (if position drifts during match)
+        left_bumper.whenBecomesTrue(TurretCommands.zero(turret));
+
+        // TURRET PRESET POSITIONS
+        dpad_left.whenBecomesTrue(TurretCommands.goToCenter(turret));
+        dpad_right.whenBecomesTrue(TurretCommands.goToRight45(turret));
 
         // Spindexer manual controls
         dpad_down.whenBecomesTrue(SpindexerCommands.indexForward(spindexer));
 
-        // Default commands (field-oriented drive)
+        // Default commands
+        // Drive with left stick, but RIGHT STICK X controls turret (not turning!)
         chassis.setDefaultCommand(DriveCommands.runWithJoysticks(chassis,
                 () -> -gamepad1.left_stick_y, () -> -gamepad1.left_stick_x,
-                () -> -gamepad1.right_stick_x, false));
+                () -> 0, false));  // No chassis turning on right stick
+
+        // TURRET: Manual control with right stick X
+        turret.setDefaultCommand(TurretCommands.manualControl(turret,
+                () -> -gamepad1.right_stick_x));
+
         shooter.setDefaultCommand(ShooterCommands.runManualShooter(shooter,
                 () -> gamepad1.right_trigger));
         spindexer.setDefaultCommand(SpindexerCommands.manualSpin(spindexer,
@@ -153,8 +170,31 @@ public class TeleopModeNoIntakeEmergency extends NextFTCOpMode {
 
     @Override
     public void onWaitForStart() {
-        // Auto-home spindexer during init
-        telemetry.addData("=== NO INTAKE EMERGENCY MODE ===", "");
+        // CRITICAL: Zero turret first
+        telemetry.addData("=== EMERGENCY MODE ===", "NO INTAKE / NO LIMELIGHT");
+        telemetry.addData("", "");
+        telemetry.addData("!! IMPORTANT !!", "Position TURRET facing FORWARD");
+        telemetry.addData("", "Turret will be ZEROED at current position");
+        telemetry.update();
+
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            // Ignore
+        }
+
+        // Zero the turret
+        turret.zero();
+        telemetry.addData("Turret", "ZEROED at current position");
+        telemetry.update();
+
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            // Ignore
+        }
+
+        // Home spindexer
         telemetry.addData("Spindexer", "Starting homing...");
         telemetry.update();
 
@@ -180,16 +220,18 @@ public class TeleopModeNoIntakeEmergency extends NextFTCOpMode {
             telemetry.addData("Spindexer", "Homed successfully");
         } else {
             spindexer.stop();
-            telemetry.addData("Spindexer", "Homing timeout - check limit switch");
+            telemetry.addData("Spindexer", "Homing timeout");
         }
 
         // Show controls
         telemetry.addData("", "");
         telemetry.addData("=== CONTROLS ===", "");
-        telemetry.addData("A", "Prepare for human feed");
-        telemetry.addData("B", "Confirm ball loaded");
-        telemetry.addData("Y", "Shoot with auto-aim");
-        telemetry.addData("RB", "Manual shoot 1600 RPM");
+        telemetry.addData("A", "Prepare for feed");
+        telemetry.addData("B", "Confirm ball");
+        telemetry.addData("Y", "Shoot 1600 RPM");
+        telemetry.addData("RB", "Shoot 1800 RPM");
+        telemetry.addData("Right Stick X", "AIM TURRET");
+        telemetry.addData("LB", "Re-zero turret");
         telemetry.update();
 
         try {
@@ -208,19 +250,25 @@ public class TeleopModeNoIntakeEmergency extends NextFTCOpMode {
         if (feedback != null) feedback.update();
 
         // Telemetry
-        telemetry.addData("=== NO INTAKE MODE ===", "");
-        telemetry.addData("Balls Loaded", "%d / 3", spindexer.getBallCount());
+        telemetry.addData("=== EMERGENCY MODE ===", "");
 
-        // Show slot status
+        // Turret status
+        if (!turret.isZeroed()) {
+            telemetry.addData("!! TURRET !!", "NOT ZEROED - Press LB");
+        }
+        telemetry.addData("Turret", "%.1f° (limit ±90°)", turret.getCurrentAngle());
+
+        // Ball status
+        telemetry.addData("Balls", "%d / 3", spindexer.getBallCount());
         String slot0 = spindexer.hasBall(0) ? "FULL" : "empty";
         String slot1 = spindexer.hasBall(1) ? "FULL" : "empty";
         String slot2 = spindexer.hasBall(2) ? "FULL" : "empty";
         telemetry.addData("Slots", "[%s | %s | %s]", slot0, slot1, slot2);
 
-        telemetry.addData("Spindexer Pos", "%s", spindexer.isAtIntakePosition() ? "INTAKE" : "SHOOTER");
-        telemetry.addData("Feeder", spindexer.isFeederUp() ? "UP" : "DOWN");
+        telemetry.addData("Spindexer", "%s", spindexer.isAtIntakePosition() ? "INTAKE" : "SHOOTER");
         telemetry.addData("", "");
-        telemetry.addData("A=Prepare | B=Confirm", "Y=Shoot");
+        telemetry.addData("A=Feed B=Confirm", "Y=Shoot");
+        telemetry.addData("Right Stick X", "Aim turret");
         telemetry.update();
     }
 

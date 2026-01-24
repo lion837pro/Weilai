@@ -101,10 +101,19 @@ public class TurretCommands {
     }
 
     /**
-     * Reset turret encoder (home position)
+     * Reset turret encoder (home position) - legacy, use zero() instead
      */
     public static Command home(Turret turret) {
         return new InstantCommand("TurretHome", turret::home);
+    }
+
+    /**
+     * Zero the turret - sets current position as center (0 degrees).
+     * MUST be called when turret is manually positioned at center/forward.
+     * Call this during init after physically positioning the turret.
+     */
+    public static Command zero(Turret turret) {
+        return new InstantCommand("TurretZero", turret::zero);
     }
 
     // ===== AUTO-ALIGN (VISION-BASED) =====

@@ -15,8 +15,11 @@ import dev.nextftc.hardware.impl.MotorEx;
  * Turret Subsystem
  *
  * A rotating turret that aims the shooter at targets.
- * Uses a single motor with 8:1 gear ratio for precise positioning.
+ * Uses a motor with 19.2:1 gearbox and 4.1:1 turret gear (78.72:1 total).
  * Supports position control, vision-based auto-alignment, and odometry-based targeting.
+ *
+ * IMPORTANT: No limit switch! Must manually zero at startup.
+ * Position turret facing forward before enabling robot.
  */
 public class Turret implements Subsystem {
 
@@ -32,6 +35,7 @@ public class Turret implements Subsystem {
     private boolean isAligning = false;       // Vision alignment active?
     private boolean isOdometryTargeting = false; // Odometry-based targeting active?
     private boolean isReturningToCenter = false; // Returning to center after tracking?
+    private boolean isZeroed = false;         // Has turret been manually zeroed?
 
     // Control state
     private double targetTicks = 0;           // Target encoder position
@@ -590,12 +594,32 @@ public class Turret implements Subsystem {
     }
 
     /**
-     * Reset turret to center and zero encoder
+     * Zero the turret - MUST be called when turret is manually positioned at center.
+     * This sets the current position as 0 degrees (center/forward).
+     * Call this during init after physically positioning the turret.
      */
-    public void home() {
+    public void zero() {
         resetEncoder();
         hasTarget = false;
         isAligning = false;
+        isOdometryTargeting = false;
+        isReturningToCenter = false;
+        isZeroed = true;
+        ActiveOpMode.telemetry().addData("Turret", "ZEROED - Current position is now CENTER (0°)");
+    }
+
+    /**
+     * Check if turret has been zeroed this session
+     */
+    public boolean isZeroed() {
+        return isZeroed;
+    }
+
+    /**
+     * Reset turret to center and zero encoder (legacy method, use zero() instead)
+     */
+    public void home() {
+        zero();
     }
 
     // ===== TELEMETRY =====
@@ -603,7 +627,14 @@ public class Turret implements Subsystem {
     private void updateTelemetry() {
         try {
             ActiveOpMode.telemetry().addData("--- TURRET ---", "");
-            ActiveOpMode.telemetry().addData("Angle", "%.1f deg", currentAngle);
+
+            // Warning if not zeroed
+            if (!isZeroed) {
+                ActiveOpMode.telemetry().addData("!! WARNING !!", "TURRET NOT ZEROED");
+            }
+
+            ActiveOpMode.telemetry().addData("Angle", "%.1f° (limit: ±%.0f°)",
+                    currentAngle, TurretConstants.MAX_ANGLE_DEGREES);
             ActiveOpMode.telemetry().addData("Target", "%.1f deg", targetAngle);
             ActiveOpMode.telemetry().addData("Power", "%.2f", currentPower);
 
