@@ -10,6 +10,8 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.Servo;
 
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.ChassisConstants;
+
 /**
  * Autonomous with full path sequence and shooting
  * Hardware mapping:
@@ -376,7 +378,7 @@ public class autoRed1 extends OpMode {
         feederTimer = new Timer();
         opmodeTimer.resetTimer();
 
-        follower = Constants.createFollower(hardwareMap);
+        follower = ChassisConstants.buildPedroPathing(hardwareMap);
         paths = new Paths(follower);
         follower.setStartingPose(startPose);
 
