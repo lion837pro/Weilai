@@ -262,8 +262,9 @@ public class SpindexerCommands {
         APPLYING_OFFSET,        // Applying 60-degree offset for shooter clearance
         WAITING_FOR_SPINUP,     // Waiting for shooter to reach RPM
         REMOVING_OFFSET,        // Moving ball back to shooter position
-        FEEDING,                // Ball is being fed to shooter
-        NEXT_BALL              // Moving to next ball
+        FEEDER_UP,              // Feeder servo pushing ball into shooter
+        FEEDER_DOWN,            // Feeder servo returning to rest position
+        NEXT_BALL               // Moving to next ball
     }
 
     /**
@@ -329,14 +330,12 @@ public class SpindexerCommands {
                 })
                 .setUpdate(() -> {
                     if (spindexer.isEmpty()) {
-                        intake.MoveIn(0);
                         if (feedback != null) feedback.onSpindexerEmpty();
                         return;
                     }
 
                     switch (state[0]) {
                         case MOVING_TO_SHOOTER:
-                            intake.MoveIn(0);
                             if (spindexer.atPosition() && spindexer.isAtShooterPosition()) {
                                 // At shooter position, apply offset
                                 spindexer.applyShooterOffset();
@@ -345,7 +344,6 @@ public class SpindexerCommands {
                             break;
 
                         case APPLYING_OFFSET:
-                            intake.MoveIn(0);
                             if (spindexer.atPosition()) {
                                 // Offset applied, now wait for shooter spin-up
                                 state[0] = ShootState.WAITING_FOR_SPINUP;
@@ -353,7 +351,6 @@ public class SpindexerCommands {
                             break;
 
                         case WAITING_FOR_SPINUP:
-                            intake.MoveIn(0);
                             if (shooter.atSetpoint()) {
                                 // Shooter at RPM, remove offset to bring ball to shooter
                                 spindexer.removeShooterOffset();
@@ -362,35 +359,38 @@ public class SpindexerCommands {
                             break;
 
                         case REMOVING_OFFSET:
-                            intake.MoveIn(0);
                             if (spindexer.atPosition()) {
-                                // Ball is at shooter position, start feeding
-                                state[0] = ShootState.FEEDING;
-                            }
-                            break;
-
-                        case FEEDING:
-                            // Start timer on first entry to FEEDING state
-                            if (!feedTimerStarted[0]) {
+                                // Ball is at shooter position, push it with feeder servo
+                                spindexer.feederUp();
                                 feedTimer.reset();
                                 feedTimerStarted[0] = true;
                                 if (feedback != null) {
                                     feedback.onBallShot(currentBallColor[0]);
                                 }
+                                state[0] = ShootState.FEEDER_UP;
                             }
+                            break;
 
-                            intake.MoveIn(1.0);  // Feed the ball
-
-                            // Wait for feeding duration before transitioning
-                            if (feedTimer.milliseconds() >= SpindexerConstants.FEED_DURATION_MS) {
+                        case FEEDER_UP:
+                            // Wait for feeder to push ball into shooter
+                            if (feedTimer.milliseconds() >= SpindexerConstants.FEEDER_MOVE_TIME_MS) {
+                                // Ball fed, bring feeder back down
+                                spindexer.feederDown();
+                                feedTimer.reset();
                                 spindexer.markCurrentSlotEmpty();
-                                state[0] = ShootState.NEXT_BALL;
+                                state[0] = ShootState.FEEDER_DOWN;
+                            }
+                            break;
+
+                        case FEEDER_DOWN:
+                            // Wait for feeder to return to rest position
+                            if (feedTimer.milliseconds() >= SpindexerConstants.FEEDER_MOVE_TIME_MS) {
                                 feedTimerStarted[0] = false;
+                                state[0] = ShootState.NEXT_BALL;
                             }
                             break;
 
                         case NEXT_BALL:
-                            intake.MoveIn(0);
                             if (!spindexer.isEmpty()) {
                                 // Move to next ball
                                 spindexer.goToNextShooterPosition();
@@ -409,7 +409,7 @@ public class SpindexerCommands {
                     }
                 })
                 .setStop(interrupted -> {
-                    intake.MoveIn(0);
+                    spindexer.feederDown();  // Always return feeder to down position
                     spindexer.stop();
                     spindexer.resetOffsetState();
                     if (feedback != null) feedback.onShooterStop();
@@ -533,7 +533,6 @@ public class SpindexerCommands {
                 })
                 .setUpdate(() -> {
                     if (spindexer.isEmpty()) {
-                        intake.MoveIn(0);
                         if (feedback != null) feedback.onSpindexerEmpty();
                         return;
                     }
@@ -543,7 +542,6 @@ public class SpindexerCommands {
 
                     switch (state[0]) {
                         case MOVING_TO_SHOOTER:
-                            intake.MoveIn(0);
                             if (spindexer.atPosition() && spindexer.isAtShooterPosition()) {
                                 spindexer.applyShooterOffset();
                                 state[0] = ShootState.APPLYING_OFFSET;
@@ -551,14 +549,12 @@ public class SpindexerCommands {
                             break;
 
                         case APPLYING_OFFSET:
-                            intake.MoveIn(0);
                             if (spindexer.atPosition()) {
                                 state[0] = ShootState.WAITING_FOR_SPINUP;
                             }
                             break;
 
                         case WAITING_FOR_SPINUP:
-                            intake.MoveIn(0);
                             if (shooter.atSetpoint()) {
                                 spindexer.removeShooterOffset();
                                 state[0] = ShootState.REMOVING_OFFSET;
@@ -566,35 +562,39 @@ public class SpindexerCommands {
                             break;
 
                         case REMOVING_OFFSET:
-                            intake.MoveIn(0);
                             if (spindexer.atPosition()) {
-                                state[0] = ShootState.FEEDING;
-                            }
-                            break;
-
-                        case FEEDING:
-                            // Start timer on first entry to FEEDING state
-                            if (!feedTimerStarted[0]) {
+                                // Ball is at shooter position, push it with feeder servo
+                                spindexer.feederUp();
                                 feedTimer.reset();
                                 feedTimerStarted[0] = true;
                                 if (feedback != null) {
                                     feedback.onBallShot(currentBallColor[0]);
                                 }
+                                state[0] = ShootState.FEEDER_UP;
                             }
+                            break;
 
-                            intake.MoveIn(1.0);
-
-                            // Wait for feeding duration before transitioning
-                            if (feedTimer.milliseconds() >= SpindexerConstants.FEED_DURATION_MS) {
+                        case FEEDER_UP:
+                            // Wait for feeder to push ball into shooter
+                            if (feedTimer.milliseconds() >= SpindexerConstants.FEEDER_MOVE_TIME_MS) {
+                                // Ball fed, bring feeder back down
+                                spindexer.feederDown();
+                                feedTimer.reset();
                                 spindexer.markCurrentSlotEmpty();
                                 currentIndex[0]++;
-                                state[0] = ShootState.NEXT_BALL;
+                                state[0] = ShootState.FEEDER_DOWN;
+                            }
+                            break;
+
+                        case FEEDER_DOWN:
+                            // Wait for feeder to return to rest position
+                            if (feedTimer.milliseconds() >= SpindexerConstants.FEEDER_MOVE_TIME_MS) {
                                 feedTimerStarted[0] = false;
+                                state[0] = ShootState.NEXT_BALL;
                             }
                             break;
 
                         case NEXT_BALL:
-                            intake.MoveIn(0);
                             if (!spindexer.isEmpty()) {
                                 goToNextSlotInOrder(spindexer, targetSlotOrder, currentIndex);
                                 state[0] = ShootState.MOVING_TO_SHOOTER;
@@ -621,7 +621,7 @@ public class SpindexerCommands {
                     ActiveOpMode.telemetry().addData("Color Sort Mode", chassis.getColorSortModeString());
                 })
                 .setStop(interrupted -> {
-                    intake.MoveIn(0);
+                    spindexer.feederDown();  // Always return feeder to down position
                     spindexer.stop();
                     spindexer.resetOffsetState();
                     if (feedback != null) feedback.onShooterStop();
@@ -712,14 +712,12 @@ public class SpindexerCommands {
                 .setUpdate(() -> {
                     // Check if sequence is empty or we're done
                     if (sequence.isEmpty() || currentIndex[0] >= sequence.size()) {
-                        intake.MoveIn(0);
                         if (feedback != null) feedback.onSpindexerEmpty();
                         return;
                     }
 
                     switch (state[0]) {
                         case MOVING_TO_SHOOTER:
-                            intake.MoveIn(0);
                             if (spindexer.atPosition() && spindexer.isAtShooterPosition()) {
                                 spindexer.applyShooterOffset();
                                 state[0] = ShootState.APPLYING_OFFSET;
@@ -727,14 +725,12 @@ public class SpindexerCommands {
                             break;
 
                         case APPLYING_OFFSET:
-                            intake.MoveIn(0);
                             if (spindexer.atPosition()) {
                                 state[0] = ShootState.WAITING_FOR_SPINUP;
                             }
                             break;
 
                         case WAITING_FOR_SPINUP:
-                            intake.MoveIn(0);
                             if (shooter.atSetpoint()) {
                                 spindexer.removeShooterOffset();
                                 state[0] = ShootState.REMOVING_OFFSET;
@@ -742,35 +738,39 @@ public class SpindexerCommands {
                             break;
 
                         case REMOVING_OFFSET:
-                            intake.MoveIn(0);
                             if (spindexer.atPosition()) {
-                                state[0] = ShootState.FEEDING;
-                            }
-                            break;
-
-                        case FEEDING:
-                            // Start timer on first entry to FEEDING state
-                            if (!feedTimerStarted[0]) {
+                                // Ball is at shooter position, push it with feeder servo
+                                spindexer.feederUp();
                                 feedTimer.reset();
                                 feedTimerStarted[0] = true;
                                 if (feedback != null) {
                                     feedback.onBallShot(currentBallColor[0]);
                                 }
+                                state[0] = ShootState.FEEDER_UP;
                             }
+                            break;
 
-                            intake.MoveIn(1.0);
-
-                            // Wait for feeding duration before transitioning
-                            if (feedTimer.milliseconds() >= SpindexerConstants.FEED_DURATION_MS) {
+                        case FEEDER_UP:
+                            // Wait for feeder to push ball into shooter
+                            if (feedTimer.milliseconds() >= SpindexerConstants.FEEDER_MOVE_TIME_MS) {
+                                // Ball fed, bring feeder back down
+                                spindexer.feederDown();
+                                feedTimer.reset();
                                 spindexer.markCurrentSlotEmpty();
                                 currentIndex[0]++;
-                                state[0] = ShootState.NEXT_BALL;
+                                state[0] = ShootState.FEEDER_DOWN;
+                            }
+                            break;
+
+                        case FEEDER_DOWN:
+                            // Wait for feeder to return to rest position
+                            if (feedTimer.milliseconds() >= SpindexerConstants.FEEDER_MOVE_TIME_MS) {
                                 feedTimerStarted[0] = false;
+                                state[0] = ShootState.NEXT_BALL;
                             }
                             break;
 
                         case NEXT_BALL:
-                            intake.MoveIn(0);
                             // Check if there are more balls in sequence
                             if (currentIndex[0] < sequence.size()) {
                                 int nextSlot = sequence.get(currentIndex[0]);
@@ -803,7 +803,7 @@ public class SpindexerCommands {
                             currentIndex[0] + 1, sequence.size());
                 })
                 .setStop(interrupted -> {
-                    intake.MoveIn(0);
+                    spindexer.feederDown();  // Always return feeder to down position
                     spindexer.stop();
                     spindexer.resetOffsetState();
                     if (feedback != null) feedback.onShooterStop();
