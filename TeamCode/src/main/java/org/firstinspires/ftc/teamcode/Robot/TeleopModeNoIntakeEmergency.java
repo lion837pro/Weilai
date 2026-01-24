@@ -28,11 +28,20 @@ import dev.nextftc.ftc.NextFTCOpMode;
  * Human player feeds balls directly into the spindexer.
  * Turret is manually controlled (no auto-aim).
  *
+ * TWO DRIVER CONFIGURATION:
+ * - DRIVER 1 (gamepad1): Full chassis control
+ * - DRIVER 2 (gamepad2): Turret, shooter, and spindexer
+ *
  * BEFORE STARTING:
  * 1. Position turret pointing FORWARD (center)
  * 2. Position spindexer with slot at limit switch
  *
- * Controls:
+ * === DRIVER 1 CONTROLS (gamepad1) ===
+ * Left stick = Drive (field-oriented)
+ * Right stick X = Turn chassis
+ * Options = Reset heading
+ *
+ * === DRIVER 2 CONTROLS (gamepad2) ===
  * A = Prepare for human feed (move spindexer to intake position)
  * B = Confirm ball loaded (mark current slot as loaded)
  * X = Fixed 1600 RPM shooter (spin-up only)
@@ -45,22 +54,20 @@ import dev.nextftc.ftc.NextFTCOpMode;
  * DpadDown = Index spindexer forward
  * DpadLeft = Turret go to center
  * DpadRight = Turret go to right 45°
- * Options = Reset heading
  *
  * RT = Manual shooter power
  * LT = Manual spindexer power
  *
- * Left stick = Drive (field-oriented)
- * Right stick X = TURRET MANUAL CONTROL
+ * Left stick X = TURRET MANUAL CONTROL
  *
  * WORKFLOW:
- * 1. Driver positions robot near human player station
- * 2. Press A to prepare spindexer for feeding
+ * 1. Driver 1 positions robot near human player station
+ * 2. Driver 2 presses A to prepare spindexer for feeding
  * 3. Human player inserts ball into spindexer slot
- * 4. Press B to confirm ball is loaded
+ * 4. Driver 2 presses B to confirm ball is loaded
  * 5. Repeat steps 2-4 until spindexer is full (3 balls max)
- * 6. Use right stick to aim turret manually
- * 7. Press Y to shoot at 1600 RPM
+ * 6. Driver 2 uses left stick X to aim turret manually
+ * 7. Driver 2 presses Y to shoot at 1600 RPM
  */
 @TeleOp(name = "NO INTAKE EMERGENCY", group = "Emergency")
 public class TeleopModeNoIntakeEmergency extends NextFTCOpMode {
@@ -100,17 +107,20 @@ public class TeleopModeNoIntakeEmergency extends NextFTCOpMode {
         feedback.setGamepads(gamepad1, gamepad2);
 
         // Initialize buttons
-        this.a = button(() -> gamepad1.a);
-        this.b = button(() -> gamepad1.b);
-        this.x = button(() -> gamepad1.x);
-        this.y = button(() -> gamepad1.y);
-        this.right_bumper = button(() -> gamepad1.right_bumper);
-        this.left_bumper = button(() -> gamepad1.left_bumper);
+        // Driver 1 (gamepad1): Only options for heading reset
         this.options = button(() -> gamepad1.options);
-        this.dpad_up = button(() -> gamepad1.dpad_up);
-        this.dpad_down = button(() -> gamepad1.dpad_down);
-        this.dpad_left = button(() -> gamepad1.dpad_left);
-        this.dpad_right = button(() -> gamepad1.dpad_right);
+
+        // Driver 2 (gamepad2): All shooter/turret/spindexer controls
+        this.a = button(() -> gamepad2.a);
+        this.b = button(() -> gamepad2.b);
+        this.x = button(() -> gamepad2.x);
+        this.y = button(() -> gamepad2.y);
+        this.right_bumper = button(() -> gamepad2.right_bumper);
+        this.left_bumper = button(() -> gamepad2.left_bumper);
+        this.dpad_up = button(() -> gamepad2.dpad_up);
+        this.dpad_down = button(() -> gamepad2.dpad_down);
+        this.dpad_left = button(() -> gamepad2.dpad_left);
+        this.dpad_right = button(() -> gamepad2.dpad_right);
 
         // System controls
         options.whenBecomesTrue(DriveCommands.resetHeading(chassis));
@@ -151,19 +161,22 @@ public class TeleopModeNoIntakeEmergency extends NextFTCOpMode {
         dpad_down.whenBecomesTrue(SpindexerCommands.indexForward(spindexer));
 
         // Default commands
-        // Drive with left stick, but RIGHT STICK X controls turret (not turning!)
+        // DRIVER 1: Full chassis control (drive + turn)
         chassis.setDefaultCommand(DriveCommands.runWithJoysticks(chassis,
                 () -> -gamepad1.left_stick_y, () -> -gamepad1.left_stick_x,
-                () -> 0, false));  // No chassis turning on right stick
+                () -> -gamepad1.right_stick_x, false));
 
-        // TURRET: Manual control with right stick X
+        // DRIVER 2: Turret control with left stick X
         turret.setDefaultCommand(TurretCommands.manualControl(turret,
-                () -> -gamepad1.right_stick_x));
+                () -> -gamepad2.left_stick_x));
 
+        // DRIVER 2: Manual shooter with right trigger
         shooter.setDefaultCommand(ShooterCommands.runManualShooter(shooter,
-                () -> gamepad1.right_trigger));
+                () -> gamepad2.right_trigger));
+
+        // DRIVER 2: Manual spindexer with left trigger
         spindexer.setDefaultCommand(SpindexerCommands.manualSpin(spindexer,
-                () -> gamepad1.left_trigger));
+                () -> gamepad2.left_trigger));
 
         feedback.setReady();
     }
@@ -225,13 +238,16 @@ public class TeleopModeNoIntakeEmergency extends NextFTCOpMode {
 
         // Show controls
         telemetry.addData("", "");
-        telemetry.addData("=== CONTROLS ===", "");
-        telemetry.addData("A", "Prepare for feed");
-        telemetry.addData("B", "Confirm ball");
-        telemetry.addData("Y", "Shoot 1600 RPM");
-        telemetry.addData("RB", "Shoot 1800 RPM");
-        telemetry.addData("Right Stick X", "AIM TURRET");
-        telemetry.addData("LB", "Re-zero turret");
+        telemetry.addData("=== 2 DRIVER MODE ===", "");
+        telemetry.addData("DRIVER 1", "Full chassis (drive+turn)");
+        telemetry.addData("DRIVER 2", "Turret/Shooter/Spindexer");
+        telemetry.addData("", "");
+        telemetry.addData("D2: A", "Prepare for feed");
+        telemetry.addData("D2: B", "Confirm ball");
+        telemetry.addData("D2: Y", "Shoot 1600 RPM");
+        telemetry.addData("D2: RB", "Shoot 1800 RPM");
+        telemetry.addData("D2: Left Stick X", "AIM TURRET");
+        telemetry.addData("D2: LB", "Re-zero turret");
         telemetry.update();
 
         try {
@@ -267,8 +283,8 @@ public class TeleopModeNoIntakeEmergency extends NextFTCOpMode {
 
         telemetry.addData("Spindexer", "%s", spindexer.isAtIntakePosition() ? "INTAKE" : "SHOOTER");
         telemetry.addData("", "");
-        telemetry.addData("A=Feed B=Confirm", "Y=Shoot");
-        telemetry.addData("Right Stick X", "Aim turret");
+        telemetry.addData("D1: Drive+Turn", "D2: Turret/Shoot");
+        telemetry.addData("D2: A=Feed B=Confirm", "Y=Shoot");
         telemetry.update();
     }
 
