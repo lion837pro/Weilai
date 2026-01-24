@@ -103,6 +103,19 @@ public class SpindexerConstants {
         return (slotIndex * 2) + 1;  // 0 -> 1, 1 -> 3, 2 -> 5
     }
 
+    /**
+     * Get the slot index (0, 1, or 2) for a given intake position (0, 2, 4)
+     * Returns -1 if position is not an intake position
+     */
+    public static int getSlotForIntakePosition(int positionIndex) {
+        switch (positionIndex) {
+            case INTAKE_POSITION_1: return 0;  // Position 0 -> Slot 0
+            case INTAKE_POSITION_2: return 1;  // Position 2 -> Slot 1
+            case INTAKE_POSITION_3: return 2;  // Position 4 -> Slot 2
+            default: return -1;  // Not an intake position
+        }
+    }
+
     // ===== CONTROL GAINS (Position PID) =====
     public static final double kP = 0.008;     // Proportional gain
     public static final double kI = 0.0;       // Integral gain (disabled to prevent oscillation)

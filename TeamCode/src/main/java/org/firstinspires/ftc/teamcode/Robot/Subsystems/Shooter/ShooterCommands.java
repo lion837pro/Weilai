@@ -393,6 +393,77 @@ public class ShooterCommands {
     }
 
     // ========================================================================
+    // NO-INTAKE SHOOTING COMMANDS (for emergency mode - human player feeds balls)
+    // These commands do NOT require the Intake subsystem
+    // ========================================================================
+
+    /**
+     * Full shooting routine at fixed RPM WITHOUT intake.
+     * For emergency mode where human player feeds balls directly into spindexer.
+     */
+    public static Command shootAllBallsNoIntake(Shooter shooter, Spindexer spindexer, double rpm) {
+        return new ParallelGroup(
+                runShooterPID(shooter, rpm),
+                SpindexerCommands.smartFeedNoIntake(shooter, spindexer)
+        );
+    }
+
+    /**
+     * Full shooting routine at fixed RPM WITHOUT intake, with feedback
+     */
+    public static Command shootAllBallsNoIntake(Shooter shooter, Spindexer spindexer,
+                                                 double rpm, RobotFeedback feedback) {
+        return new ParallelGroup(
+                runShooterPID(shooter, rpm, feedback),
+                SpindexerCommands.smartFeedNoIntake(shooter, spindexer, feedback)
+        );
+    }
+
+    /**
+     * TeleOp shooting at fixed RPM WITHOUT intake - runs until button released.
+     * For emergency mode where human player feeds balls directly into spindexer.
+     */
+    public static Command teleopShootNoIntake(Shooter shooter, Spindexer spindexer, double rpm) {
+        return new ParallelGroup(
+                runShooterPID(shooter, rpm),
+                SpindexerCommands.smartFeedNoIntakeContinuous(shooter, spindexer)
+        );
+    }
+
+    /**
+     * TeleOp shooting at fixed RPM WITHOUT intake, with feedback
+     */
+    public static Command teleopShootNoIntake(Shooter shooter, Spindexer spindexer,
+                                               double rpm, RobotFeedback feedback) {
+        return new ParallelGroup(
+                runShooterPID(shooter, rpm, feedback),
+                SpindexerCommands.smartFeedNoIntakeContinuous(shooter, spindexer, feedback)
+        );
+    }
+
+    /**
+     * TeleOp shooting with auto-aim WITHOUT intake - runs until button released.
+     */
+    public static Command teleopShootNoIntakeAutoAim(Shooter shooter, Spindexer spindexer,
+                                                      SuperChassis chassis) {
+        return new ParallelGroup(
+                autoRevShooter(shooter, chassis),
+                SpindexerCommands.smartFeedNoIntakeContinuous(shooter, spindexer)
+        );
+    }
+
+    /**
+     * TeleOp shooting with auto-aim WITHOUT intake, with feedback
+     */
+    public static Command teleopShootNoIntakeAutoAim(Shooter shooter, Spindexer spindexer,
+                                                      SuperChassis chassis, RobotFeedback feedback) {
+        return new ParallelGroup(
+                autoRevShooter(shooter, chassis, feedback),
+                SpindexerCommands.smartFeedNoIntakeContinuous(shooter, spindexer, feedback)
+        );
+    }
+
+    // ========================================================================
     // HOOD-BASED AUTO-AIM - COMMENTED OUT
     // Hood disabled - using RPM-based distance shooting instead.
     // To re-enable, uncomment these methods and Hood imports.

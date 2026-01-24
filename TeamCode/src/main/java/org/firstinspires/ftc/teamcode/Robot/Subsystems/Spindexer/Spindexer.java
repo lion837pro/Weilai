@@ -640,6 +640,28 @@ public class Spindexer implements Subsystem {
         setBallLoaded(slot, loaded, BallColor.UNKNOWN);
     }
 
+    /**
+     * Mark a slot as loaded (for human player feeding balls - no color detection)
+     */
+    public void markSlotLoaded(int slot) {
+        if (slot >= 0 && slot < SpindexerConstants.SLOTS_COUNT) {
+            ballsLoaded[slot] = true;
+            // No color detection - mark as UNKNOWN
+            ballColors[slot] = BallColor.UNKNOWN;
+        }
+    }
+
+    /**
+     * Mark current intake slot as loaded (for human player feeding)
+     */
+    public void markCurrentIntakeSlotLoaded() {
+        if (isAtIntakePosition()) {
+            int slot = currentPosition / 2;
+            ballsLoaded[slot] = true;
+            ballColors[slot] = BallColor.UNKNOWN;
+        }
+    }
+
     public void markCurrentSlotEmpty() {
         if (isAtShooterPosition()) {
             int slot = (currentPosition - 1) / 2;
