@@ -105,7 +105,8 @@ public class Spindexer implements Subsystem {
                 motor.reversed();
             }
             motor.brakeMode();
-            motor.resetEncoder();
+            // Virtual encoder reset - store current position as offset
+            encoderOffset = motor.getCurrentPosition();
         } catch (Exception e) {
             motor = null;
             ActiveOpMode.telemetry().addData("Spindexer Motor", "NOT FOUND: " + e.getMessage());
