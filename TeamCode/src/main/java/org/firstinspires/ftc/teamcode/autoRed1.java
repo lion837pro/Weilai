@@ -7,27 +7,25 @@ import com.pedropathing.paths.PathChain;
 import com.pedropathing.util.Timer;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
-import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.Servo;
 
 /**
- * Simplified Autonomous with Spindexer and Shooter
+ * Autonomous with Spindexer and Shooter
+ * Uses your original shooting sequence pattern with velocity control.
  *
  * State Machine:
  * 0: Follow path1 to shooting position
- * 1: Path complete - start shooter motor
- * 2: Wait for shooter spinup
- * 3: Move spindexer to shooter position + fire ball 1
- * 4: Fire ball 2
- * 5: Fire ball 3
- * 6: Stop all motors - done
+ * 1: Path complete - start shooter motor (spinup)
+ * 2: Wait 1 second, then start spindexer + feeder cycling
+ * 3: Run spindexer + cycle feeder for 3 seconds to shoot all balls
+ * 4: Stop all motors - done
  */
 @Autonomous(name = "autoRed1", group = "auto-pedro")
 public class autoRed1 extends OpMode {
 
     private Follower follower;
-    private Timer pathTimer, actionTimer, opmodeTimer;
+    private Timer pathTimer, actionTimer, opmodeTimer, feederTimer;
 
     private int pathState;
 
@@ -39,23 +37,24 @@ public class autoRed1 extends OpMode {
     private DcMotorEx spindexerMotor;  // "spin" - spindexer rotation
     private Servo feederServo;         // "feeder" - pushes ball to shooter
 
-    // ===== CONSTANTS =====
-    // Shooter
-    private static final double SHOOTER_POWER = 0.6;  // 60% power for shooting
-    private static final int SHOOTER_SPINUP_MS = 1000;  // Wait 1 second for spinup
+    // ===== VELOCITY CONSTANTS (matching your original pattern) =====
+    // Shooter velocity (was leftPelvis/rightPelvis at 1650)
+    private static final int SHOOTER_VELOCITY = 1650;
 
-    // Spindexer
-    private static final double SPINDEXER_POWER = 0.3;  // Power for spindexer rotation
-    private static final double TICKS_PER_POSITION = 537.7 / 6.0;  // 60 degrees = 1 position
+    // Spindexer velocity (was inter at 1900)
+    private static final int SPINDEXER_VELOCITY = 1900;
 
     // Feeder servo
     private static final double FEEDER_DOWN = 0.0;    // Resting position
     private static final double FEEDER_UP = 0.667;    // Push ball position
-    private static final int FEEDER_MOVE_MS = 250;    // Time to move servo
 
-    // Shooting sequence
-    private int ballsShot = 0;
-    private int shootingSubState = 0;  // Sub-state for ball firing sequence
+    // Timing (matching your original pattern)
+    private static final double SPINUP_TIME = 1.0;       // 1 second spinup
+    private static final double SHOOTING_TIME = 3.0;     // 3 seconds to shoot all balls
+    private static final double FEEDER_CYCLE_TIME = 0.4; // Feeder up/down cycle time
+
+    // Feeder cycling state
+    private boolean feederUp = false;
 
     public static class Paths {
         public PathChain launch1;
@@ -82,86 +81,48 @@ public class autoRed1 extends OpMode {
             case 1:
                 // Wait for path to complete
                 if (!follower.isBusy()) {
-                    // Start shooter motor
-                    shooterMotor.setPower(SHOOTER_POWER);
+                    // Turn on shooter motor (like leftPelvis/rightPelvis)
+                    shooterMotor.setVelocity(SHOOTER_VELOCITY);
                     actionTimer.resetTimer();
                     setPathState(2);
                 }
                 break;
 
             case 2:
-                // Wait for shooter to spin up
-                if (actionTimer.getElapsedTimeSeconds() > (SHOOTER_SPINUP_MS / 1000.0)) {
-                    // Shooter ready, start shooting sequence
-                    ballsShot = 0;
-                    shootingSubState = 0;
+                // Wait 1 second for spinup (like your original pattern)
+                if (actionTimer.getElapsedTimeSeconds() > SPINUP_TIME) {
+                    // Turn on spindexer (like inter)
+                    spindexerMotor.setVelocity(SPINDEXER_VELOCITY);
+                    // Start feeder cycling
+                    feederServo.setPosition(FEEDER_UP);
+                    feederUp = true;
+                    feederTimer.resetTimer();
+                    actionTimer.resetTimer();
                     setPathState(3);
                 }
                 break;
 
             case 3:
-                // Shooting sequence - fires all 3 balls
-                shootBallSequence();
-                break;
-
-            case 4:
-                // Done - stop all motors
-                shooterMotor.setPower(0);
-                spindexerMotor.setPower(0);
-                feederServo.setPosition(FEEDER_DOWN);
-                setPathState(-1);  // End autonomous
-                break;
-        }
-    }
-
-    /**
-     * Sub-state machine for shooting balls
-     * Each ball: move spindexer → feeder up → feeder down → next ball
-     */
-    private void shootBallSequence() {
-        switch (shootingSubState) {
-            case 0:
-                // Move spindexer to shooter position (odd positions: 1, 3, 5)
-                // For simplicity, just rotate by 1 position (60 degrees)
-                spindexerMotor.setTargetPosition(spindexerMotor.getCurrentPosition() + (int)TICKS_PER_POSITION);
-                spindexerMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-                spindexerMotor.setPower(SPINDEXER_POWER);
-                shootingSubState = 1;
-                break;
-
-            case 1:
-                // Wait for spindexer to reach position
-                if (!spindexerMotor.isBusy()) {
-                    spindexerMotor.setPower(0);
-                    // Push ball with feeder
-                    feederServo.setPosition(FEEDER_UP);
-                    actionTimer.resetTimer();
-                    shootingSubState = 2;
-                }
-                break;
-
-            case 2:
-                // Wait for feeder to push ball
-                if (actionTimer.getElapsedTimeSeconds() > (FEEDER_MOVE_MS / 1000.0)) {
-                    // Bring feeder back down
-                    feederServo.setPosition(FEEDER_DOWN);
-                    actionTimer.resetTimer();
-                    shootingSubState = 3;
-                }
-                break;
-
-            case 3:
-                // Wait for feeder to return
-                if (actionTimer.getElapsedTimeSeconds() > (FEEDER_MOVE_MS / 1000.0)) {
-                    ballsShot++;
-
-                    if (ballsShot >= 3) {
-                        // All balls shot, done
-                        setPathState(4);
+                // Run spindexer + cycle feeder for 3 seconds
+                // Cycle feeder up/down to push balls
+                if (feederTimer.getElapsedTimeSeconds() > FEEDER_CYCLE_TIME / 2) {
+                    if (feederUp) {
+                        feederServo.setPosition(FEEDER_DOWN);
+                        feederUp = false;
                     } else {
-                        // Move to next ball
-                        shootingSubState = 0;
+                        feederServo.setPosition(FEEDER_UP);
+                        feederUp = true;
                     }
+                    feederTimer.resetTimer();
+                }
+
+                // After 3 seconds, stop everything
+                if (actionTimer.getElapsedTimeSeconds() > SHOOTING_TIME) {
+                    // Turn everything off (like your original pattern)
+                    shooterMotor.setVelocity(0);
+                    spindexerMotor.setVelocity(0);
+                    feederServo.setPosition(FEEDER_DOWN);
+                    setPathState(-1);  // End autonomous
                 }
                 break;
         }
@@ -180,15 +141,15 @@ public class autoRed1 extends OpMode {
         // Telemetry
         telemetry.addData("--- AUTO RED 1 ---", "");
         telemetry.addData("State", pathState);
-        telemetry.addData("Sub-State", shootingSubState);
-        telemetry.addData("Balls Shot", ballsShot);
+        telemetry.addData("Timer", "%.1f s", actionTimer.getElapsedTimeSeconds());
         telemetry.addData("", "");
         telemetry.addData("Pose X", "%.1f", follower.getPose().getX());
         telemetry.addData("Pose Y", "%.1f", follower.getPose().getY());
         telemetry.addData("Heading", "%.1f°", Math.toDegrees(follower.getPose().getHeading()));
         telemetry.addData("", "");
-        telemetry.addData("Shooter Power", "%.2f", shooterMotor.getPower());
-        telemetry.addData("Spindexer Pos", spindexerMotor.getCurrentPosition());
+        telemetry.addData("Shooter Vel", "%.0f", shooterMotor.getVelocity());
+        telemetry.addData("Spindexer Vel", "%.0f", spindexerMotor.getVelocity());
+        telemetry.addData("Feeder", feederUp ? "UP" : "DOWN");
         telemetry.update();
     }
 
@@ -198,6 +159,7 @@ public class autoRed1 extends OpMode {
         pathTimer = new Timer();
         actionTimer = new Timer();
         opmodeTimer = new Timer();
+        feederTimer = new Timer();
         opmodeTimer.resetTimer();
 
         // Initialize Pedro follower
@@ -205,13 +167,13 @@ public class autoRed1 extends OpMode {
         paths = new Paths(follower);
         follower.setStartingPose(startPose);
 
-        // Initialize shooter motor
+        // Initialize shooter motor (velocity mode)
         shooterMotor = hardwareMap.get(DcMotorEx.class, "Sh1");
-        shooterMotor.setDirection(DcMotorEx.Direction.REVERSE);  // Inverted per ShooterConstants
+        shooterMotor.setDirection(DcMotorEx.Direction.REVERSE);
         shooterMotor.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.FLOAT);
-        shooterMotor.setMode(DcMotorEx.RunMode.RUN_WITHOUT_ENCODER);
+        shooterMotor.setMode(DcMotorEx.RunMode.RUN_USING_ENCODER);
 
-        // Initialize spindexer motor
+        // Initialize spindexer motor (velocity mode)
         spindexerMotor = hardwareMap.get(DcMotorEx.class, "spin");
         spindexerMotor.setDirection(DcMotorEx.Direction.FORWARD);
         spindexerMotor.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.BRAKE);
@@ -224,8 +186,8 @@ public class autoRed1 extends OpMode {
         feederServo.setPosition(FEEDER_DOWN);
 
         telemetry.addData("Status", "Initialized");
-        telemetry.addData("Shooter", "Sh1");
-        telemetry.addData("Spindexer", "spin");
+        telemetry.addData("Shooter", "Sh1 (vel: " + SHOOTER_VELOCITY + ")");
+        telemetry.addData("Spindexer", "spin (vel: " + SPINDEXER_VELOCITY + ")");
         telemetry.addData("Feeder", "feeder");
         telemetry.update();
     }
@@ -243,8 +205,8 @@ public class autoRed1 extends OpMode {
     @Override
     public void stop() {
         // Safety - stop all motors
-        if (shooterMotor != null) shooterMotor.setPower(0);
-        if (spindexerMotor != null) spindexerMotor.setPower(0);
+        if (shooterMotor != null) shooterMotor.setVelocity(0);
+        if (spindexerMotor != null) spindexerMotor.setVelocity(0);
         if (feederServo != null) feederServo.setPosition(FEEDER_DOWN);
     }
 }
