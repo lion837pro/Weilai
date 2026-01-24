@@ -132,9 +132,9 @@ public class TeleopModeNoIntakeEmergency extends NextFTCOpMode {
         // B = Confirm ball loaded (mark current slot as loaded after human inserts ball)
         b.whenBecomesTrue(new InstantCommand("Confirm Ball Loaded", () -> {
             spindexer.markCurrentIntakeSlotLoaded();
-            // Give feedback - rumble to confirm
+            // Give feedback - rumble gamepad2 (driver 2) to confirm
             if (feedback != null) {
-                feedback.rumbleDriver(0.5, 100);
+                feedback.rumbleGamepad2(0.5, 100);
             }
         }));
 
