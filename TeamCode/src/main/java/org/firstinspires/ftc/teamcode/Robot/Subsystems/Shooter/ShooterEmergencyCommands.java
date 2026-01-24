@@ -7,10 +7,9 @@ import org.firstinspires.ftc.teamcode.Robot.Subsystems.Spindexer.SpindexerComman
 import java.util.function.DoubleSupplier;
 
 import dev.nextftc.core.commands.Command;
+import dev.nextftc.core.commands.groups.ParallelGroup;
 import dev.nextftc.core.commands.utility.InstantCommand;
 import dev.nextftc.core.commands.utility.LambdaCommand;
-import dev.nextftc.core.commands.utility.SequentialGroup;
-import dev.nextftc.core.commands.utility.WaitCommand;
 
 /**
  * Emergency Shooter Commands
@@ -62,7 +61,6 @@ public class ShooterEmergencyCommands {
      */
     public static Command runAtPower(ShooterEmergency shooter, double power, RobotFeedback feedback) {
         final boolean[] notifiedReady = {false};
-        final double targetRPM = power * ShooterConstants.MAX_RPM;
 
         return new LambdaCommand()
                 .named("RunShooterAtPower")
@@ -115,57 +113,14 @@ public class ShooterEmergencyCommands {
     // ===== SHOOTING SEQUENCES (NO INTAKE) =====
 
     /**
-     * Spin up, feed balls, then stop.
+     * Spin up and feed balls in parallel.
      * For emergency no-intake mode.
      */
     public static Command shootNoIntake(ShooterEmergency shooter, Spindexer spindexer,
                                         double power, RobotFeedback feedback) {
-        return new LambdaCommand()
-                .named("EmergencyShoot")
-                .requires(shooter)
-                .setStart(() -> {
-                    shooter.setPower(power);
-                })
-                .setUpdate(() -> {
-                    shooter.setPower(power);
-                })
-                .setStop(interrupted -> {
-                    shooter.stop();
-                    if (feedback != null) {
-                        feedback.onShooterStop();
-                    }
-                })
-                .setIsDone(() -> false)
-                .setInterruptible(true)
-                .alongside(SpindexerCommands.smartFeedNoIntakeContinuous(shooter, spindexer, feedback));
-    }
-
-    /**
-     * Simple shooting sequence with fixed spin-up time
-     */
-    public static Command shootWithSpinup(ShooterEmergency shooter, Spindexer spindexer,
-                                          double power, int spinupMs, RobotFeedback feedback) {
-        return new SequentialGroup(
-                // Spin up
-                new LambdaCommand()
-                        .named("SpinUp")
-                        .requires(shooter)
-                        .setStart(() -> shooter.setPower(power))
-                        .setUpdate(() -> {})
-                        .setStop(interrupted -> {})
-                        .setIsDone(() -> false)
-                        .setInterruptible(true)
-                        .withTimeout(spinupMs),
-
-                // Notify ready
-                new InstantCommand("NotifyReady", () -> {
-                    if (feedback != null) {
-                        feedback.onShooterAtRPM();
-                    }
-                }),
-
-                // Feed and shoot continuously
-                shootNoIntake(shooter, spindexer, power, feedback)
+        return new ParallelGroup(
+                runAtPower(shooter, power, feedback),
+                SpindexerCommands.smartFeedNoIntakeContinuous(shooter, spindexer, feedback)
         );
     }
 
