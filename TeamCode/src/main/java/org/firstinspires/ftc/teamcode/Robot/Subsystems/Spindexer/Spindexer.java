@@ -5,6 +5,7 @@ import androidx.annotation.NonNull;
 import com.qualcomm.robotcore.hardware.ColorRangeSensor;
 import com.qualcomm.robotcore.hardware.DigitalChannel;
 import com.qualcomm.robotcore.hardware.NormalizedRGBA;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.SwitchableLight;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
@@ -48,6 +49,10 @@ public class Spindexer implements Subsystem {
     private DigitalChannel limitSwitch;
     private ColorRangeSensor colorSensor1;
     private ColorRangeSensor colorSensor2;
+
+    // Hardware - Feeder servo (transfers ball from spindexer to shooter)
+    private Servo feederServo;
+    private boolean isFeederUp = false;
 
     // State tracking
     private int currentPosition = 0;           // Current position index (0-5)
@@ -137,6 +142,21 @@ public class Spindexer implements Subsystem {
             this.colorSensor2.setGain(SpindexerConstants.COLOR_SENSOR_GAIN);
         } catch (Exception e) {
             this.colorSensor2 = null;
+        }
+
+        // Initialize feeder servo
+        try {
+            this.feederServo = ActiveOpMode.hardwareMap()
+                    .get(Servo.class, SpindexerConstants.FEEDER_SERVO_NAME);
+            if (SpindexerConstants.FEEDER_SERVO_REVERSED) {
+                feederServo.setDirection(Servo.Direction.REVERSE);
+            }
+            // Start in down position
+            feederServo.setPosition(SpindexerConstants.FEEDER_DOWN_POSITION);
+            isFeederUp = false;
+        } catch (Exception e) {
+            this.feederServo = null;
+            ActiveOpMode.telemetry().addData("Feeder Servo", "NOT FOUND");
         }
 
         // Initialize ball tracking
@@ -734,6 +754,40 @@ public class Spindexer implements Subsystem {
         }
     }
 
+    // ===== FEEDER SERVO CONTROL =====
+
+    /**
+     * Move feeder servo to UP position (120 degrees) to push ball into shooter
+     */
+    public void feederUp() {
+        if (feederServo == null) return;
+        feederServo.setPosition(SpindexerConstants.FEEDER_UP_POSITION);
+        isFeederUp = true;
+    }
+
+    /**
+     * Move feeder servo to DOWN position (0 degrees) - resting position
+     */
+    public void feederDown() {
+        if (feederServo == null) return;
+        feederServo.setPosition(SpindexerConstants.FEEDER_DOWN_POSITION);
+        isFeederUp = false;
+    }
+
+    /**
+     * Check if feeder is in UP position
+     */
+    public boolean isFeederUp() {
+        return isFeederUp;
+    }
+
+    /**
+     * Check if feeder servo is initialized
+     */
+    public boolean hasFeederServo() {
+        return feederServo != null;
+    }
+
     // ===== TELEMETRY =====
 
     private void updateTelemetry() {
@@ -803,6 +857,13 @@ public class Spindexer implements Subsystem {
                 }
             } else {
                 ActiveOpMode.telemetry().addData("SHOOTER Sensor", "NOT FOUND");
+            }
+
+            // Feeder servo status
+            if (feederServo != null) {
+                ActiveOpMode.telemetry().addData("Feeder", isFeederUp ? "UP (120°)" : "DOWN (0°)");
+            } else {
+                ActiveOpMode.telemetry().addData("Feeder", "NOT FOUND");
             }
 
         } catch (Exception e) {

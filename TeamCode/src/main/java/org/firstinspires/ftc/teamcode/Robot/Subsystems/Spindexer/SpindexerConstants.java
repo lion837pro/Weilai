@@ -30,6 +30,19 @@ public class SpindexerConstants {
     public static final String COLOR_SENSOR_1_NAME = "colorS1";  // Detects ball at intake
     public static final String COLOR_SENSOR_2_NAME = "colorS2";  // Secondary sensor (optional)
 
+    // ===== FEEDER SERVO CONFIGURATION =====
+    // Servo that transfers ball from spindexer to shooter
+    public static final String FEEDER_SERVO_NAME = "feeder";
+    public static final boolean FEEDER_SERVO_REVERSED = true;  // Counter-clockwise motion
+
+    // Feeder positions (0-120 degrees, counter-clockwise)
+    // For reversed servo: 0.0 = 0 degrees (down), 0.667 = 120 degrees (up)
+    public static final double FEEDER_DOWN_POSITION = 0.0;    // Resting position (0 degrees)
+    public static final double FEEDER_UP_POSITION = 0.667;    // Feeding position (120 degrees)
+
+    // Feeder timing
+    public static final long FEEDER_MOVE_TIME_MS = 200;       // Time for servo to move between positions
+
     // ===== LIMIT SWITCH CONFIGURATION =====
     // Polarity: true = active-low (triggered when LOW), false = active-high (triggered when HIGH)
     public static final boolean LIMIT_SWITCH_ACTIVE_LOW = true;

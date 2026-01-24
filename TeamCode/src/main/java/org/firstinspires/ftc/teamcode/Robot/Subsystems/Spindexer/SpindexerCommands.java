@@ -175,6 +175,81 @@ public class SpindexerCommands {
     }
 
     // ========================================================================
+    // FEEDER SERVO COMMANDS
+    // Controls the servo that transfers ball from spindexer to shooter
+    // ========================================================================
+
+    /**
+     * Move feeder servo UP (120 degrees) to push ball into shooter
+     */
+    public static Command feederUp(Spindexer spindexer) {
+        final ElapsedTime timer = new ElapsedTime();
+
+        return new LambdaCommand()
+                .named("feederUp")
+                .requires(spindexer)
+                .setStart(() -> {
+                    spindexer.feederUp();
+                    timer.reset();
+                })
+                .setUpdate(() -> {})
+                .setStop(interrupted -> {})
+                .setIsDone(() -> timer.milliseconds() >= SpindexerConstants.FEEDER_MOVE_TIME_MS)
+                .setInterruptible(true);
+    }
+
+    /**
+     * Move feeder servo DOWN (0 degrees) - resting position
+     */
+    public static Command feederDown(Spindexer spindexer) {
+        final ElapsedTime timer = new ElapsedTime();
+
+        return new LambdaCommand()
+                .named("feederDown")
+                .requires(spindexer)
+                .setStart(() -> {
+                    spindexer.feederDown();
+                    timer.reset();
+                })
+                .setUpdate(() -> {})
+                .setStop(interrupted -> {})
+                .setIsDone(() -> timer.milliseconds() >= SpindexerConstants.FEEDER_MOVE_TIME_MS)
+                .setInterruptible(true);
+    }
+
+    /**
+     * Feed sequence: Move feeder UP, wait, then DOWN
+     * Complete cycle to push one ball into shooter
+     */
+    public static Command feedBall(Spindexer spindexer) {
+        final ElapsedTime timer = new ElapsedTime();
+        final boolean[] isUp = {false};
+
+        return new LambdaCommand()
+                .named("feedBall")
+                .requires(spindexer)
+                .setStart(() -> {
+                    spindexer.feederUp();
+                    timer.reset();
+                    isUp[0] = true;
+                })
+                .setUpdate(() -> {
+                    if (isUp[0] && timer.milliseconds() >= SpindexerConstants.FEEDER_MOVE_TIME_MS) {
+                        // Feeder is up, now bring it down
+                        spindexer.feederDown();
+                        timer.reset();
+                        isUp[0] = false;
+                    }
+                })
+                .setStop(interrupted -> {
+                    // Always return to down position when stopped
+                    spindexer.feederDown();
+                })
+                .setIsDone(() -> !isUp[0] && timer.milliseconds() >= SpindexerConstants.FEEDER_MOVE_TIME_MS)
+                .setInterruptible(true);
+    }
+
+    // ========================================================================
     // SMART FEED HELPERS (used by ShooterCommands for shooting sequences)
     // With 60-degree offset for mechanical clearance during shooter spin-up
     // ========================================================================
