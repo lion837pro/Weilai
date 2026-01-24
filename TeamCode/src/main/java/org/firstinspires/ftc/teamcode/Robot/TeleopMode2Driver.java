@@ -8,7 +8,7 @@ import org.firstinspires.ftc.teamcode.Robot.DriveCommands.DriveCommands;
 import org.firstinspires.ftc.teamcode.Robot.Hardware.REV312010;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.ChassisConstants;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.SuperChassis;
-import org.firstinspires.ftc.teamcode.Robot.Subsystems.Hood.Hood;
+// import org.firstinspires.ftc.teamcode.Robot.Subsystems.Hood.Hood;  // Hood disabled - using RPM-based distance
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.Intake;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.IntakeCommands;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.LED.RobotFeedback;
@@ -31,7 +31,7 @@ import java.util.List;
 
 /**
  * 2-DRIVER TELEOP MODE
- * GP1(Driver): A=Intake | B=Reverse | X=1600RPM | Y=FixedRPM+Spindexer | RB=AutoAim+Hood(MAIN)
+ * GP1(Driver): A=Intake | B=Reverse | X=1600RPM | Y=FixedRPM+Spindexer | RB=AutoAimRPM(MAIN)
  *              LB=TurretAutoAlign | RT=ManualShooter | Options=ResetHeading | DpadLeft=ResetColorTag
  *
  * GP2(Operator): Advanced spindexer control
@@ -47,7 +47,7 @@ public class TeleopMode2Driver extends NextFTCOpMode {
     private final Intake intake = Intake.INSTANCE;
     private final Shooter shooter = Shooter.INSTANCE;
     private final Spindexer spindexer = Spindexer.INSTANCE;
-    private final Hood hood = Hood.INSTANCE;
+    // private final Hood hood = Hood.INSTANCE;  // Hood disabled - using RPM-based distance
     private final Turret turret = Turret.INSTANCE;
     private REV312010 led;
     private RobotFeedback feedback;
@@ -73,7 +73,7 @@ public class TeleopMode2Driver extends NextFTCOpMode {
         addComponents(intake.asCOMPONENT());
         addComponents(shooter.asCOMPONENT());
         addComponents(spindexer.asCOMPONENT());
-        addComponents(hood.asCOMPONENT());
+        // addComponents(hood.asCOMPONENT());  // Hood disabled - using RPM-based distance
         addComponents(turret.asCOMPONENT());
     }
 
@@ -127,9 +127,9 @@ public class TeleopMode2Driver extends NextFTCOpMode {
         gp1_dpad_up.whenTrue(ShooterCommands.runShooterPID(shooter, -600));
 
         // Full shooting sequences (PRIMARY COMPETITION CONTROLS)
-        // RB: Hood-based auto-aim with color sorting (MAIN SHOOTING BUTTON)
-        gp1_right_bumper.whenTrue(ShooterCommands.teleopShootColorSortedWithHood(
-                shooter, hood, spindexer, intake, chassis, feedback));
+        // RB: RPM-based auto-aim with color sorting (MAIN SHOOTING BUTTON)
+        gp1_right_bumper.whenTrue(ShooterCommands.teleopShootColorSortedAutoAim(
+                shooter, spindexer, intake, chassis, feedback));
 
         // Y: Fixed RPM shooting without hood auto-aim
         gp1_y.whenTrue(ShooterCommands.teleopShootFixedRPM(shooter, spindexer, intake, 1600, feedback));
@@ -266,7 +266,7 @@ public class TeleopMode2Driver extends NextFTCOpMode {
         telemetry.addData("Color Sort", chassis.getColorSortModeString());
         telemetry.addData("Programming", programmingMode ? "ACTIVE" : "Inactive");
         telemetry.addData("Sequence", formatSequence());
-        telemetry.addData("Hood Angle", "%.1f deg", hood.getAngleDegrees());
+        // telemetry.addData("Hood Angle", "%.1f deg", hood.getAngleDegrees());  // Hood disabled
         telemetry.addData("Turret Aligned", turret.isAligned() ? "YES" : "NO");
         telemetry.update();
     }

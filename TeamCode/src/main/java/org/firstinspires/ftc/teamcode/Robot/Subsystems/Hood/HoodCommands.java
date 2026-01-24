@@ -1,5 +1,12 @@
 package org.firstinspires.ftc.teamcode.Robot.Subsystems.Hood;
 
+/*
+ * HOOD COMMANDS - COMMENTED OUT
+ * Using RPM-based distance shooting instead of hood angle adjustment.
+ * To re-enable, uncomment this entire file.
+ */
+
+/*
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.SuperChassis;
 
 import java.util.function.DoubleSupplier;
@@ -8,11 +15,6 @@ import dev.nextftc.core.commands.Command;
 import dev.nextftc.core.commands.utility.InstantCommand;
 import dev.nextftc.core.commands.utility.LambdaCommand;
 
-/**
- * Commands for the Hood subsystem.
- *
- * Provides hood angle control for distance-based aiming.
- */
 public class HoodCommands {
 
     // ========================================================================
@@ -283,3 +285,4 @@ public class HoodCommands {
                 .setInterruptible(true);
     }
 }
+*/

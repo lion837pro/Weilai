@@ -7,22 +7,19 @@ public class ShooterConstants {
     public static final String SHOOTER_MOTOR_NAME = "Sh1";
     public static final boolean MOTOR_INVERTED = true;
 
-    // ===== HOOD SERVO CONFIGURATION =====
+    // ===== HOOD SERVO CONFIGURATION - DISABLED (using RPM-based distance shooting) =====
+    /*
     public static final String HOOD_SERVO_1_NAME = "hoodServo1";
     public static final String HOOD_SERVO_2_NAME = "hoodServo2";
-
     public static final boolean HOOD_SERVO_1_REVERSED = false;
-    public static final boolean HOOD_SERVO_2_REVERSED = true;  // Mirror servo
-
-    // Hood angle presets (servo positions 0.0 to 1.0)
-    public static final double HOOD_MIN_POSITION = 0.0;    // Lowest angle (flat)
-    public static final double HOOD_MAX_POSITION = 1.0;    // Highest angle (steep)
-    public static final double HOOD_DEFAULT_POSITION = 0.5; // Default mid-position
-
-    // Hood angle mapping (for auto-aim)
-    public static final double HOOD_CLOSE_SHOT = 0.3;      // For close range (low trajectory)
-    public static final double HOOD_MID_SHOT = 0.5;        // For medium range
-    public static final double HOOD_FAR_SHOT = 0.7;        // For far range (high trajectory)
+    public static final boolean HOOD_SERVO_2_REVERSED = true;
+    public static final double HOOD_MIN_POSITION = 0.0;
+    public static final double HOOD_MAX_POSITION = 1.0;
+    public static final double HOOD_DEFAULT_POSITION = 0.5;
+    public static final double HOOD_CLOSE_SHOT = 0.3;
+    public static final double HOOD_MID_SHOT = 0.5;
+    public static final double HOOD_FAR_SHOT = 0.7;
+    */
 
     // ===== MOTOR SPECS =====
     public static final double TICKS_PER_REV = 28.0; // For GoBilda Yellow Jacket 1:1

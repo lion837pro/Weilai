@@ -2,8 +2,8 @@ package org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter;
 
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.SuperChassis;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants;
-import org.firstinspires.ftc.teamcode.Robot.Subsystems.Hood.Hood;
-import org.firstinspires.ftc.teamcode.Robot.Subsystems.Hood.HoodConstants;
+// import org.firstinspires.ftc.teamcode.Robot.Subsystems.Hood.Hood;  // Hood disabled - using RPM-based distance
+// import org.firstinspires.ftc.teamcode.Robot.Subsystems.Hood.HoodConstants;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.Intake;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.LED.RobotFeedback;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Spindexer.Spindexer;
@@ -104,27 +104,89 @@ public class ShooterCommands {
     }
 
     // ========================================================================
-    // DEPRECATED: Distance-based RPM auto-aim
-    // Now using fixed high RPM (2500) with hood angle adjustment instead.
-    // Use autoAimWithHood() for distance-based shooting.
+    // DISTANCE-BASED RPM AUTO-AIM
+    // Adjusts shooter RPM based on distance to target using Limelight
+    // Uses VisionConstants.BASE_RPM + distance * VisionConstants.RPM_PER_INCH
     // ========================================================================
 
     /**
-     * @deprecated Use autoAimWithHood() instead - fixed RPM with hood angle adjustment
+     * Auto-aim shooter RPM based on distance to target.
+     * Continuously adjusts RPM using Limelight distance measurement.
      */
-    @Deprecated
     public static Command autoRevShooter(Shooter shooter, SuperChassis chassis) {
-        // Redirect to fixed RPM shooter at HoodConstants.FIXED_SHOOTING_RPM
-        return runShooterPID(shooter, HoodConstants.FIXED_SHOOTING_RPM);
+        return new LambdaCommand()
+                .named("autoRevShooter")
+                .requires(shooter)
+                .setStart(() -> {
+                    // Start with base RPM
+                    double targetTPS = ShooterConstants.rpmToTicksPerSecond(VisionConstants.BASE_RPM);
+                    shooter.toVelocity(targetTPS);
+                })
+                .setUpdate(() -> {
+                    double distance = chassis.getDistanceToTag();
+                    double rpm;
+                    if (distance > 0) {
+                        // Calculate RPM based on distance
+                        rpm = VisionConstants.BASE_RPM + (distance * VisionConstants.RPM_PER_INCH);
+                    } else {
+                        // No target visible - use base RPM
+                        rpm = VisionConstants.BASE_RPM;
+                    }
+                    double targetTPS = ShooterConstants.rpmToTicksPerSecond(rpm);
+                    shooter.toVelocity(targetTPS);
+
+                    dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Auto RPM", "%.0f", rpm);
+                    dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Distance", "%.1f in", distance);
+                })
+                .setStop(interrupted -> shooter.stop())
+                .setIsDone(() -> false)
+                .setInterruptible(true);
     }
 
     /**
-     * @deprecated Use autoAimWithHood() instead - fixed RPM with hood angle adjustment
+     * Auto-aim shooter RPM based on distance with feedback.
      */
-    @Deprecated
     public static Command autoRevShooter(Shooter shooter, SuperChassis chassis, RobotFeedback feedback) {
-        // Redirect to fixed RPM shooter at HoodConstants.FIXED_SHOOTING_RPM
-        return runShooterPID(shooter, HoodConstants.FIXED_SHOOTING_RPM, feedback);
+        final boolean[] hasNotifiedReady = {false};
+
+        return new LambdaCommand()
+                .named("autoRevShooter")
+                .requires(shooter)
+                .setStart(() -> {
+                    hasNotifiedReady[0] = false;
+                    double targetTPS = ShooterConstants.rpmToTicksPerSecond(VisionConstants.BASE_RPM);
+                    shooter.toVelocity(targetTPS);
+                })
+                .setUpdate(() -> {
+                    double distance = chassis.getDistanceToTag();
+                    double rpm;
+                    if (distance > 0) {
+                        rpm = VisionConstants.BASE_RPM + (distance * VisionConstants.RPM_PER_INCH);
+                    } else {
+                        rpm = VisionConstants.BASE_RPM;
+                    }
+                    double targetTPS = ShooterConstants.rpmToTicksPerSecond(rpm);
+                    shooter.toVelocity(targetTPS);
+
+                    // Trigger feedback once when RPM is reached
+                    if (shooter.atSetpoint() && !hasNotifiedReady[0]) {
+                        if (feedback != null) {
+                            feedback.onShooterAtRPM();
+                        }
+                        hasNotifiedReady[0] = true;
+                    }
+
+                    dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Auto RPM", "%.0f", rpm);
+                    dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Distance", "%.1f in", distance);
+                })
+                .setStop(interrupted -> {
+                    shooter.stop();
+                    if (feedback != null) {
+                        feedback.onShooterStop();
+                    }
+                })
+                .setIsDone(() -> false)
+                .setInterruptible(true);
     }
 
     // ========================================================================
@@ -331,22 +393,16 @@ public class ShooterCommands {
     }
 
     // ========================================================================
-    // HOOD-BASED AUTO-AIM (Fixed RPM, variable hood angle)
-    // Uses hood angle for distance instead of RPM adjustment
+    // HOOD-BASED AUTO-AIM - COMMENTED OUT
+    // Hood disabled - using RPM-based distance shooting instead.
+    // To re-enable, uncomment these methods and Hood imports.
     // ========================================================================
 
-    /**
-     * Auto-aim using hood angle adjustment.
-     * Keeps shooter at fixed RPM and adjusts hood based on distance.
-     * This is the preferred method for accurate distance shooting.
-     */
+    /*
     public static Command autoAimWithHood(Shooter shooter, Hood hood, SuperChassis chassis) {
         return autoAimWithHood(shooter, hood, chassis, null);
     }
 
-    /**
-     * Auto-aim using hood with feedback
-     */
     public static Command autoAimWithHood(Shooter shooter, Hood hood, SuperChassis chassis,
                                            RobotFeedback feedback) {
         final boolean[] hasNotifiedReady = {false};
@@ -361,26 +417,17 @@ public class ShooterCommands {
                     shooter.toVelocity(targetTPS);
                 })
                 .setUpdate(() -> {
-                    // Keep shooter at fixed RPM
                     shooter.toVelocity(targetTPS);
-
-                    // Adjust hood based on distance
                     double distance = chassis.getDistanceToTag();
                     if (distance > 0) {
                         hood.setHoodForDistance(distance);
                     }
-
-                    // Trigger feedback once when RPM is reached
                     if (shooter.atSetpoint() && !hasNotifiedReady[0]) {
                         if (feedback != null) {
                             feedback.onShooterAtRPM();
                         }
                         hasNotifiedReady[0] = true;
                     }
-
-                    dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Hood Dist", "%.1f in", distance);
-                    dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Hood Angle", "%.1f deg", hood.getAngleDegrees());
-                    dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Fixed RPM", "%.0f", HoodConstants.FIXED_SHOOTING_RPM);
                 })
                 .setStop(interrupted -> {
                     shooter.stop();
@@ -392,11 +439,6 @@ public class ShooterCommands {
                 .setInterruptible(true);
     }
 
-    /**
-     * TeleOp color-sorted shooting with hood-based auto-aim.
-     * Uses fixed RPM and hood angle for distance adjustment.
-     * Best option for competition with full feedback (LED + rumble).
-     */
     public static Command teleopShootColorSortedWithHood(Shooter shooter, Hood hood, Spindexer spindexer,
                                                           Intake intake, SuperChassis chassis,
                                                           RobotFeedback feedback) {
@@ -406,10 +448,6 @@ public class ShooterCommands {
         );
     }
 
-    /**
-     * Full shooting routine with hood-based auto-aim.
-     * Shoots until all balls are fired.
-     */
     public static Command shootAllBallsWithHood(Shooter shooter, Hood hood, Spindexer spindexer,
                                                  Intake intake, SuperChassis chassis,
                                                  RobotFeedback feedback) {
@@ -418,4 +456,5 @@ public class ShooterCommands {
                 SpindexerCommands.smartFeedColorSorted(shooter, spindexer, intake, chassis, feedback)
         );
     }
+    */
 }

@@ -1,7 +1,7 @@
 package org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter;
 import androidx.annotation.NonNull;
 
-import com.qualcomm.robotcore.hardware.Servo;
+// import com.qualcomm.robotcore.hardware.Servo;  // Hood disabled - using RPM-based distance
 
 import dev.nextftc.core.commands.Command;
 import dev.nextftc.core.commands.utility.NullCommand;
@@ -24,16 +24,16 @@ public class Shooter implements Subsystem {
     // Shooter motor (single motor)
     private MotorEx motor;
 
-    // Hood servos (2 servos for angle adjustment)
-    private Servo hoodServo1;
-    private Servo hoodServo2;
+    // Hood servos - DISABLED (using RPM-based distance shooting)
+    // private Servo hoodServo1;
+    // private Servo hoodServo2;
 
     // State
     private boolean hasTarget = false;
     private boolean open = false;
     private double currentPower = 0;
     private double rawPower = 0;
-    private double currentHoodPosition = ShooterConstants.HOOD_DEFAULT_POSITION;
+    // private double currentHoodPosition = ShooterConstants.HOOD_DEFAULT_POSITION;  // Hood disabled
 
     // Power efficiency: track if motor is idle for float mode
     private boolean isIdle = true;
@@ -54,7 +54,8 @@ public class Shooter implements Subsystem {
             ActiveOpMode.telemetry().addData("Shooter Motor", "NOT FOUND");
         }
 
-        // Initialize hood servo 1
+        // Hood servos - DISABLED (using RPM-based distance shooting)
+        /*
         try {
             this.hoodServo1 = ActiveOpMode.hardwareMap().get(Servo.class, ShooterConstants.HOOD_SERVO_1_NAME);
             if (ShooterConstants.HOOD_SERVO_1_REVERSED) {
@@ -66,7 +67,6 @@ public class Shooter implements Subsystem {
             ActiveOpMode.telemetry().addData("Hood Servo 1", "NOT FOUND");
         }
 
-        // Initialize hood servo 2
         try {
             this.hoodServo2 = ActiveOpMode.hardwareMap().get(Servo.class, ShooterConstants.HOOD_SERVO_2_NAME);
             if (ShooterConstants.HOOD_SERVO_2_REVERSED) {
@@ -77,6 +77,7 @@ public class Shooter implements Subsystem {
             this.hoodServo2 = null;
             ActiveOpMode.telemetry().addData("Hood Servo 2", "NOT FOUND");
         }
+        */
 
         // Initialize slew rate limiter
         this.slewRateLimiter = new SlewRateLimiter(ShooterConstants.MAX_ACCELERATION);
@@ -168,11 +169,11 @@ public class Shooter implements Subsystem {
                         ShooterConstants.LOW_SPEED_KV, ShooterConstants.HIGH_SPEED_KV);
             }
 
-            // F. Hood status
-            ActiveOpMode.telemetry().addData("--- HOOD ---", "");
-            ActiveOpMode.telemetry().addData("Hood Position", "%.2f", currentHoodPosition);
-            ActiveOpMode.telemetry().addData("Servo1", hoodServo1 != null ? "OK" : "NOT FOUND");
-            ActiveOpMode.telemetry().addData("Servo2", hoodServo2 != null ? "OK" : "NOT FOUND");
+            // F. Hood status - DISABLED (using RPM-based distance shooting)
+            // ActiveOpMode.telemetry().addData("--- HOOD ---", "");
+            // ActiveOpMode.telemetry().addData("Hood Position", "%.2f", currentHoodPosition);
+            // ActiveOpMode.telemetry().addData("Servo1", hoodServo1 != null ? "OK" : "NOT FOUND");
+            // ActiveOpMode.telemetry().addData("Servo2", hoodServo2 != null ? "OK" : "NOT FOUND");
 
             // G. Motor status
             ActiveOpMode.telemetry().addData("--- MOTOR ---", "");
@@ -250,82 +251,37 @@ public class Shooter implements Subsystem {
         return Interval.isInRange(getVelocity(), minLimit, maxLimit);
     }
 
-    // ===== HOOD CONTROL =====
-
-    /**
-     * Set hood position (0.0 to 1.0)
-     * 0.0 = lowest angle (flat)
-     * 1.0 = highest angle (steep)
-     */
+    // ===== HOOD CONTROL - DISABLED (using RPM-based distance shooting) =====
+    /*
     public void setHoodPosition(double position) {
         position = Math.max(ShooterConstants.HOOD_MIN_POSITION,
                 Math.min(ShooterConstants.HOOD_MAX_POSITION, position));
         this.currentHoodPosition = position;
-
         if (hoodServo1 != null) hoodServo1.setPosition(position);
         if (hoodServo2 != null) hoodServo2.setPosition(position);
     }
 
-    /**
-     * Get current hood position
-     */
-    public double getHoodPosition() {
-        return currentHoodPosition;
-    }
+    public double getHoodPosition() { return currentHoodPosition; }
+    public void setHoodClose() { setHoodPosition(ShooterConstants.HOOD_CLOSE_SHOT); }
+    public void setHoodMid() { setHoodPosition(ShooterConstants.HOOD_MID_SHOT); }
+    public void setHoodFar() { setHoodPosition(ShooterConstants.HOOD_FAR_SHOT); }
+    public void adjustHood(double delta) { setHoodPosition(currentHoodPosition + delta); }
 
-    /**
-     * Set hood to close shot angle (low trajectory)
-     */
-    public void setHoodClose() {
-        setHoodPosition(ShooterConstants.HOOD_CLOSE_SHOT);
-    }
-
-    /**
-     * Set hood to mid shot angle (medium trajectory)
-     */
-    public void setHoodMid() {
-        setHoodPosition(ShooterConstants.HOOD_MID_SHOT);
-    }
-
-    /**
-     * Set hood to far shot angle (high trajectory)
-     */
-    public void setHoodFar() {
-        setHoodPosition(ShooterConstants.HOOD_FAR_SHOT);
-    }
-
-    /**
-     * Adjust hood position by a delta amount
-     */
-    public void adjustHood(double delta) {
-        setHoodPosition(currentHoodPosition + delta);
-    }
-
-    /**
-     * Calculate optimal hood position for a given distance (auto-aim)
-     * This is a simple linear interpolation - tune based on testing
-     */
     public void setHoodForDistance(double distanceInches) {
-        // Map distance to hood position
-        // Close (0-24"): HOOD_CLOSE_SHOT
-        // Far (72"+): HOOD_FAR_SHOT
-        // Linear interpolation in between
-
         double minDist = 24.0;
         double maxDist = 72.0;
-
         if (distanceInches <= minDist) {
             setHoodPosition(ShooterConstants.HOOD_CLOSE_SHOT);
         } else if (distanceInches >= maxDist) {
             setHoodPosition(ShooterConstants.HOOD_FAR_SHOT);
         } else {
-            // Linear interpolation
             double t = (distanceInches - minDist) / (maxDist - minDist);
             double position = ShooterConstants.HOOD_CLOSE_SHOT +
                     t * (ShooterConstants.HOOD_FAR_SHOT - ShooterConstants.HOOD_CLOSE_SHOT);
             setHoodPosition(position);
         }
     }
+    */
 
     public SubsystemComponent asCOMPONENT(){return new SubsystemComponent(INSTANCE);}
 
