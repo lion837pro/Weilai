@@ -167,7 +167,7 @@ public class TestSpindexerIntakeMode extends NextFTCOpMode {
         telemetry.addData("Position", "%d (%s)",
                 spindexer.getCurrentPosition(),
                 spindexer.isAtIntakePosition() ? "INTAKE" : "SHOOTER");
-        telemetry.addData("Encoder", "%.1f ticks", spindexer.getCurrentTicks());
+        telemetry.addData("Encoder", "%.1f ticks", spindexer.getCurrentTicks_Public());
         telemetry.addData("At Position", spindexer.atPosition() ? "YES" : "NO");
         telemetry.addData("Limit Switch", spindexer.isAtHome() ? "TRIGGERED" : "Open");
 

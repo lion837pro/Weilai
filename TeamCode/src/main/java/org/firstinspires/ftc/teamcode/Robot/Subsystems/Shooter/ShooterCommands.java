@@ -2,6 +2,8 @@ package org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter;
 
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.SuperChassis;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.VisionConstants;
+// import org.firstinspires.ftc.teamcode.Robot.Subsystems.Hood.Hood;  // Hood disabled - using RPM-based distance
+// import org.firstinspires.ftc.teamcode.Robot.Subsystems.Hood.HoodConstants;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.Intake;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.LED.RobotFeedback;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Spindexer.Spindexer;
@@ -96,19 +98,53 @@ public class ShooterCommands {
                 .requires(shooter)
                 .setStart(() -> shooter.stop())
                 .setUpdate(() -> shooter.stop())
+                .setStop(interrupted -> shooter.stop())
                 .setIsDone(() -> true)
                 .setInterruptible(true);
     }
 
+    // ========================================================================
+    // DISTANCE-BASED RPM AUTO-AIM
+    // Adjusts shooter RPM based on distance to target using Limelight
+    // Uses VisionConstants.BASE_RPM + distance * VisionConstants.RPM_PER_INCH
+    // ========================================================================
+
     /**
-     * Auto-rev shooter based on vision distance
+     * Auto-aim shooter RPM based on distance to target.
+     * Continuously adjusts RPM using Limelight distance measurement.
      */
     public static Command autoRevShooter(Shooter shooter, SuperChassis chassis) {
-        return autoRevShooter(shooter, chassis, null);
+        return new LambdaCommand()
+                .named("autoRevShooter")
+                .requires(shooter)
+                .setStart(() -> {
+                    // Start with base RPM
+                    double targetTPS = ShooterConstants.rpmToTicksPerSecond(VisionConstants.BASE_RPM);
+                    shooter.toVelocity(targetTPS);
+                })
+                .setUpdate(() -> {
+                    double distance = chassis.getDistanceToTag();
+                    double rpm;
+                    if (distance > 0) {
+                        // Calculate RPM based on distance
+                        rpm = VisionConstants.BASE_RPM + (distance * VisionConstants.RPM_PER_INCH);
+                    } else {
+                        // No target visible - use base RPM
+                        rpm = VisionConstants.BASE_RPM;
+                    }
+                    double targetTPS = ShooterConstants.rpmToTicksPerSecond(rpm);
+                    shooter.toVelocity(targetTPS);
+
+                    dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Auto RPM", "%.0f", rpm);
+                    dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Distance", "%.1f in", distance);
+                })
+                .setStop(interrupted -> shooter.stop())
+                .setIsDone(() -> false)
+                .setInterruptible(true);
     }
 
     /**
-     * Auto-rev shooter based on vision distance with feedback
+     * Auto-aim shooter RPM based on distance with feedback.
      */
     public static Command autoRevShooter(Shooter shooter, SuperChassis chassis, RobotFeedback feedback) {
         final boolean[] hasNotifiedReady = {false};
@@ -116,15 +152,20 @@ public class ShooterCommands {
         return new LambdaCommand()
                 .named("autoRevShooter")
                 .requires(shooter)
-                .setStart(() -> hasNotifiedReady[0] = false)
+                .setStart(() -> {
+                    hasNotifiedReady[0] = false;
+                    double targetTPS = ShooterConstants.rpmToTicksPerSecond(VisionConstants.BASE_RPM);
+                    shooter.toVelocity(targetTPS);
+                })
                 .setUpdate(() -> {
                     double distance = chassis.getDistanceToTag();
-                    double targetRPM = VisionConstants.BASE_RPM + (distance * VisionConstants.RPM_PER_INCH);
-
-                    if (targetRPM > ShooterConstants.MAX_RPM) targetRPM = ShooterConstants.MAX_RPM;
-                    if (distance <= 0) targetRPM = 1300;
-
-                    double targetTPS = ShooterConstants.rpmToTicksPerSecond(targetRPM);
+                    double rpm;
+                    if (distance > 0) {
+                        rpm = VisionConstants.BASE_RPM + (distance * VisionConstants.RPM_PER_INCH);
+                    } else {
+                        rpm = VisionConstants.BASE_RPM;
+                    }
+                    double targetTPS = ShooterConstants.rpmToTicksPerSecond(rpm);
                     shooter.toVelocity(targetTPS);
 
                     // Trigger feedback once when RPM is reached
@@ -134,13 +175,9 @@ public class ShooterCommands {
                         }
                         hasNotifiedReady[0] = true;
                     }
-                    // Reset notification if we drop well below setpoint (optional, but good for re-revving)
-                    else if (!shooter.atSetpoint() && hasNotifiedReady[0]) {
-                        // Debounce/hysteresis could be added here
-                    }
 
-                    dev.nextftc.ftc.ActiveOpMode.telemetry().addData("AutoAim Dist", "%.1f in", distance);
-                    dev.nextftc.ftc.ActiveOpMode.telemetry().addData("AutoAim RPM", "%.0f", targetRPM);
+                    dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Auto RPM", "%.0f", rpm);
+                    dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Distance", "%.1f in", distance);
                 })
                 .setStop(interrupted -> {
                     shooter.stop();
@@ -354,4 +391,141 @@ public class ShooterCommands {
                 SpindexerCommands.smartFeedCustomSequence(shooter, spindexer, intake, sequence, feedback)
         );
     }
+
+    // ========================================================================
+    // NO-INTAKE SHOOTING COMMANDS (for emergency mode - human player feeds balls)
+    // These commands do NOT require the Intake subsystem
+    // ========================================================================
+
+    /**
+     * Full shooting routine at fixed RPM WITHOUT intake.
+     * For emergency mode where human player feeds balls directly into spindexer.
+     */
+    public static Command shootAllBallsNoIntake(Shooter shooter, Spindexer spindexer, double rpm) {
+        return new ParallelGroup(
+                runShooterPID(shooter, rpm),
+                SpindexerCommands.smartFeedNoIntake(shooter, spindexer)
+        );
+    }
+
+    /**
+     * Full shooting routine at fixed RPM WITHOUT intake, with feedback
+     */
+    public static Command shootAllBallsNoIntake(Shooter shooter, Spindexer spindexer,
+                                                 double rpm, RobotFeedback feedback) {
+        return new ParallelGroup(
+                runShooterPID(shooter, rpm, feedback),
+                SpindexerCommands.smartFeedNoIntake(shooter, spindexer, feedback)
+        );
+    }
+
+    /**
+     * TeleOp shooting at fixed RPM WITHOUT intake - runs until button released.
+     * For emergency mode where human player feeds balls directly into spindexer.
+     */
+    public static Command teleopShootNoIntake(Shooter shooter, Spindexer spindexer, double rpm) {
+        return new ParallelGroup(
+                runShooterPID(shooter, rpm),
+                SpindexerCommands.smartFeedNoIntakeContinuous(shooter, spindexer)
+        );
+    }
+
+    /**
+     * TeleOp shooting at fixed RPM WITHOUT intake, with feedback
+     */
+    public static Command teleopShootNoIntake(Shooter shooter, Spindexer spindexer,
+                                               double rpm, RobotFeedback feedback) {
+        return new ParallelGroup(
+                runShooterPID(shooter, rpm, feedback),
+                SpindexerCommands.smartFeedNoIntakeContinuous(shooter, spindexer, feedback)
+        );
+    }
+
+    /**
+     * TeleOp shooting with auto-aim WITHOUT intake - runs until button released.
+     */
+    public static Command teleopShootNoIntakeAutoAim(Shooter shooter, Spindexer spindexer,
+                                                      SuperChassis chassis) {
+        return new ParallelGroup(
+                autoRevShooter(shooter, chassis),
+                SpindexerCommands.smartFeedNoIntakeContinuous(shooter, spindexer)
+        );
+    }
+
+    /**
+     * TeleOp shooting with auto-aim WITHOUT intake, with feedback
+     */
+    public static Command teleopShootNoIntakeAutoAim(Shooter shooter, Spindexer spindexer,
+                                                      SuperChassis chassis, RobotFeedback feedback) {
+        return new ParallelGroup(
+                autoRevShooter(shooter, chassis, feedback),
+                SpindexerCommands.smartFeedNoIntakeContinuous(shooter, spindexer, feedback)
+        );
+    }
+
+    // ========================================================================
+    // HOOD-BASED AUTO-AIM - COMMENTED OUT
+    // Hood disabled - using RPM-based distance shooting instead.
+    // To re-enable, uncomment these methods and Hood imports.
+    // ========================================================================
+
+    /*
+    public static Command autoAimWithHood(Shooter shooter, Hood hood, SuperChassis chassis) {
+        return autoAimWithHood(shooter, hood, chassis, null);
+    }
+
+    public static Command autoAimWithHood(Shooter shooter, Hood hood, SuperChassis chassis,
+                                           RobotFeedback feedback) {
+        final boolean[] hasNotifiedReady = {false};
+        double targetTPS = ShooterConstants.rpmToTicksPerSecond(HoodConstants.FIXED_SHOOTING_RPM);
+
+        return new LambdaCommand()
+                .named("autoAimWithHood")
+                .requires(shooter)
+                .requires(hood)
+                .setStart(() -> {
+                    hasNotifiedReady[0] = false;
+                    shooter.toVelocity(targetTPS);
+                })
+                .setUpdate(() -> {
+                    shooter.toVelocity(targetTPS);
+                    double distance = chassis.getDistanceToTag();
+                    if (distance > 0) {
+                        hood.setHoodForDistance(distance);
+                    }
+                    if (shooter.atSetpoint() && !hasNotifiedReady[0]) {
+                        if (feedback != null) {
+                            feedback.onShooterAtRPM();
+                        }
+                        hasNotifiedReady[0] = true;
+                    }
+                })
+                .setStop(interrupted -> {
+                    shooter.stop();
+                    if (feedback != null) {
+                        feedback.onShooterStop();
+                    }
+                })
+                .setIsDone(() -> false)
+                .setInterruptible(true);
+    }
+
+    public static Command teleopShootColorSortedWithHood(Shooter shooter, Hood hood, Spindexer spindexer,
+                                                          Intake intake, SuperChassis chassis,
+                                                          RobotFeedback feedback) {
+        return new ParallelGroup(
+                autoAimWithHood(shooter, hood, chassis, feedback),
+                SpindexerCommands.smartFeedColorSortedContinuous(shooter, spindexer, intake, chassis, feedback)
+        );
+    }
+
+    public static Command shootAllBallsWithHood(Shooter shooter, Hood hood, Spindexer spindexer,
+                                                 Intake intake, SuperChassis chassis,
+                                                 RobotFeedback feedback) {
+        return new ParallelGroup(
+                autoAimWithHood(shooter, hood, chassis, feedback),
+                SpindexerCommands.smartFeedColorSorted(shooter, spindexer, intake, chassis, feedback)
+        );
+    }
+    */
 }

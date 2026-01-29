@@ -8,6 +8,7 @@ import org.firstinspires.ftc.teamcode.Robot.DriveCommands.DriveCommands;
 import org.firstinspires.ftc.teamcode.Robot.Hardware.REV312010;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.ChassisConstants;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Drive.SuperChassis;
+// import org.firstinspires.ftc.teamcode.Robot.Subsystems.Hood.Hood;  // Hood disabled - using RPM-based distance
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.Intake;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Intake.IntakeCommands;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.LED.RobotFeedback;
@@ -15,6 +16,8 @@ import org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter.Shooter;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Shooter.ShooterCommands;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Spindexer.Spindexer;
 import org.firstinspires.ftc.teamcode.Robot.Subsystems.Spindexer.SpindexerCommands;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.Turret.Turret;
+import org.firstinspires.ftc.teamcode.Robot.Subsystems.Turret.TurretCommands;
 
 import dev.nextftc.bindings.BindingManager;
 import dev.nextftc.bindings.Button;
@@ -23,8 +26,8 @@ import dev.nextftc.ftc.NextFTCOpMode;
 
 /**
  * SINGLE DRIVER TELEOP MODE
- * Controls: A=Intake | B=Reverse | X=1600RPM | Y=1800RPM+Spindexer | RB=AutoAim(MAIN)
- *          LB=VisionAlign | RT=ManualShooter | LT=ManualSpindexer | Options=ResetHeading
+ * Controls: A=Intake | B=Reverse | X=1600RPM | Y=FixedRPM+Spindexer | RB=AutoAimRPM(MAIN)
+ *          LB=TurretAutoAlign | RT=ManualShooter | LT=ManualSpindexer | Options=ResetHeading
  *          DpadLeft=ResetColorTag | DpadUp=ReverseShooter | DpadDown=IndexForward
  */
 @TeleOp(name = "Single Driver Mode", group = "Competition")
@@ -35,6 +38,8 @@ public class TeleopMode extends NextFTCOpMode {
     private final Intake intake = Intake.INSTANCE;
     private final Shooter shooter = Shooter.INSTANCE;
     private final Spindexer spindexer = Spindexer.INSTANCE;
+    // private final Hood hood = Hood.INSTANCE;  // Hood disabled - using RPM-based distance
+    private final Turret turret = Turret.INSTANCE;
     private REV312010 led;
     private RobotFeedback feedback;
 
@@ -52,6 +57,8 @@ public class TeleopMode extends NextFTCOpMode {
         addComponents(intake.asCOMPONENT());
         addComponents(shooter.asCOMPONENT());
         addComponents(spindexer.asCOMPONENT());
+        // addComponents(hood.asCOMPONENT());  // Hood disabled - using RPM-based distance
+        addComponents(turret.asCOMPONENT());
     }
 
     @Override
@@ -77,34 +84,32 @@ public class TeleopMode extends NextFTCOpMode {
         this.dpad_down = button(() -> gamepad1.dpad_down);
         this.dpad_left = button(() -> gamepad1.dpad_left);
 
-        // System controls
+        // System controls (instant commands - use whenBecomesTrue)
         options.whenBecomesTrue(DriveCommands.resetHeading(chassis));
         dpad_left.whenBecomesTrue(new dev.nextftc.core.commands.utility.InstantCommand(
                 "Reset Color Sort Tag", chassis::resetColorSortTag));
 
-        // Intake controls
-        a.whenBecomesTrue(IntakeCommands.runIntakeWithSpindexer(spindexer, intake, 0.7, feedback));
-        a.whenBecomesFalse(IntakeCommands.stopIntakeWithSpindexer(spindexer, intake));
+        // Intake controls - use whenTrue for "run while held" behavior
+        // whenTrue automatically cancels the command when button is released,
+        // which triggers the command's setStop() handler to stop motors properly
+        a.whenTrue(IntakeCommands.runIntakeWithSpindexer(spindexer, intake, 0.7, feedback));
+        b.whenTrue(IntakeCommands.runIntake(intake, -0.7));
 
-        b.whenBecomesTrue(IntakeCommands.runIntake(intake, -0.7));
-        b.whenBecomesFalse(IntakeCommands.stopIntakeWithSpindexer(spindexer, intake));
-
-        // Shooter controls (standalone)
+        // Shooter controls (standalone) - whenTrue auto-cancels on release
         x.whenTrue(ShooterCommands.runShooterPID(shooter, 1600, feedback));
-        x.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
         dpad_up.whenTrue(ShooterCommands.runShooterPID(shooter, -600));
-        dpad_up.whenBecomesFalse(ShooterCommands.stopShooter(shooter));
 
         // Full shooting sequences (PRIMARY COMPETITION CONTROLS)
+        // RB: RPM-based auto-aim with color sorting (MAIN SHOOTING BUTTON)
         right_bumper.whenTrue(ShooterCommands.teleopShootColorSortedAutoAim(
                 shooter, spindexer, intake, chassis, feedback));
 
+        // Y: Fixed RPM shooting without hood auto-aim
         y.whenTrue(ShooterCommands.teleopShootFixedRPM(shooter, spindexer, intake, 1600, feedback));
 
-        // Vision controls
-        left_bumper.whenBecomesTrue(DriveCommands.alignWithJoysticks(chassis,
-                () -> -gamepad1.left_stick_y, () -> -gamepad1.left_stick_x));
-        left_bumper.whenBecomesFalse(DriveCommands.stop(chassis));
+        // Turret auto-align (LB) - uses Limelight to aim turret instead of chassis
+        // whenTrue auto-cancels on release, calling the command's setStop() handler
+        left_bumper.whenTrue(TurretCommands.autoAlign(turret, chassis));
 
         // Spindexer manual controls
         dpad_down.whenBecomesTrue(SpindexerCommands.indexForward(spindexer));
@@ -128,6 +133,20 @@ public class TeleopMode extends NextFTCOpMode {
 
     @Override
     public void onWaitForStart() {
+        // Zero turret - IMPORTANT: Position turret forward before starting!
+        telemetry.addData("=== TURRET ZEROING ===", "");
+        telemetry.addData("IMPORTANT", "Position turret FORWARD before pressing START");
+        telemetry.update();
+
+        // Zero the turret (assumes it's positioned at center)
+        turret.zero();
+
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            // Ignore
+        }
+
         // Auto-home spindexer during init (run directly, not as command)
         telemetry.addData("Spindexer", "Starting homing...");
         telemetry.addData("Limit Switch", "Raw state: " + spindexer.getLimitSwitchRawState());
@@ -160,12 +179,14 @@ public class TeleopMode extends NextFTCOpMode {
 
         if (spindexer.isAtHome()) {
             spindexer.finishHoming();
-            telemetry.addData("Spindexer", "✓ Homed successfully");
+            telemetry.addData("Spindexer", "Homed successfully");
         } else {
             spindexer.stop();
-            telemetry.addData("Spindexer", "✗ Homing timeout");
+            telemetry.addData("Spindexer", "Homing timeout");
             telemetry.addData("Check", "Limit switch connection");
         }
+
+        telemetry.addData("Turret", turret.isZeroed() ? "ZEROED" : "NOT ZEROED!");
         telemetry.update();
 
         // Give user time to see result

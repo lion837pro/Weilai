@@ -26,6 +26,8 @@ import static dev.nextftc.extensions.pedro.PedroComponent.gyro;
 
 import androidx.annotation.NonNull;
 
+import com.qualcomm.robotcore.hardware.DigitalChannel;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -52,6 +54,11 @@ public class SuperChassis implements Subsystem {
     private int lockedColorSortTag = -1;
     private boolean waitingForColorSortTag = false;
 
+    // Limit switch for conditional odometry updates
+    // Only update odometry from Limelight when limit switch is triggered
+    private DigitalChannel odometryLimitSwitch;
+    private boolean odometryLimitSwitchEnabled = true; // Set to false to always update
+
     @Override
     public void initialize() {
         HardwareMap map = ActiveOpMode.hardwareMap();
@@ -69,6 +76,16 @@ public class SuperChassis implements Subsystem {
             }
         } catch (Exception e) {
             ActiveOpMode.telemetry().addData("Follower Error", "Not initialized yet");
+        }
+
+        // Initialize odometry limit switch (uses spindexer's limit switch)
+        try {
+            odometryLimitSwitch = map.get(DigitalChannel.class,
+                    org.firstinspires.ftc.teamcode.Robot.Subsystems.Spindexer.SpindexerConstants.LIMIT_SWITCH_NAME);
+            odometryLimitSwitch.setMode(DigitalChannel.Mode.INPUT);
+        } catch (Exception e) {
+            odometryLimitSwitch = null;
+            ActiveOpMode.telemetry().addData("Odometry Limit Switch", "Not found - always updating");
         }
     }
 
@@ -127,7 +144,10 @@ public class SuperChassis implements Subsystem {
 
                 Pose3D botpose_mt2 = result.getBotpose_MT2();
 
-                if (botpose_mt2 != null) {
+                // Only update odometry when limit switch is triggered (or disabled)
+                boolean shouldUpdateOdometry = !odometryLimitSwitchEnabled || isOdometryLimitSwitchTriggered();
+
+                if (botpose_mt2 != null && shouldUpdateOdometry) {
                     double x = botpose_mt2.getPosition().x;
                     double y = botpose_mt2.getPosition().y;
 
@@ -469,6 +489,67 @@ public class SuperChassis implements Subsystem {
         } else {
             return "AUTO (following visible tags)";
         }
+    }
+
+    // ===== ROBOT POSE =====
+
+    /**
+     * Get the current robot pose from odometry.
+     * Used for odometry-based turret targeting.
+     */
+    public Pose getRobotPose() {
+        return robotPose;
+    }
+
+    /**
+     * Calculate distance from robot to a fixed field position using odometry.
+     * Used for odometry-based hood angle control.
+     *
+     * @param targetX Target X position on field (inches)
+     * @param targetY Target Y position on field (inches)
+     * @return Distance in inches
+     */
+    public double getDistanceToPosition(double targetX, double targetY) {
+        double dx = targetX - robotPose.getX();
+        double dy = targetY - robotPose.getY();
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    /**
+     * Check if Limelight has a valid target for distance measurement.
+     * Returns true if connected and seeing a valid tag.
+     */
+    public boolean hasValidDistanceTarget() {
+        return isLLConnected() && lastDetectedId != -1;
+    }
+
+    // ===== CONDITIONAL ODOMETRY UPDATES =====
+
+    /**
+     * Check if the odometry limit switch is triggered.
+     * Returns true if the switch is triggered (active-low logic).
+     */
+    public boolean isOdometryLimitSwitchTriggered() {
+        if (odometryLimitSwitch == null) {
+            return true; // Always update if switch not available
+        }
+        // Active-low: triggered when getState() returns false
+        return !odometryLimitSwitch.getState();
+    }
+
+    /**
+     * Enable or disable conditional odometry updates.
+     * When enabled, odometry only updates when limit switch is triggered.
+     */
+    public void setOdometryLimitSwitchEnabled(boolean enabled) {
+        this.odometryLimitSwitchEnabled = enabled;
+    }
+
+    /**
+     * Check if conditional odometry updates are enabled.
+     */
+    public boolean isOdometryLimitSwitchEnabled() {
+        return odometryLimitSwitchEnabled;
     }
 }
 

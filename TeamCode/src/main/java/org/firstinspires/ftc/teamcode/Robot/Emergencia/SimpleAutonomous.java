@@ -13,6 +13,10 @@ import dev.nextftc.ftc.NextFTCOpMode;
 
 import static dev.nextftc.extensions.pedro.PedroComponent.follower;
 
+/**
+ * DEPRECATED: This is a backup implementation.
+ */
+@com.qualcomm.robotcore.eventloop.opmode.Disabled  // Commented out - use main autonomous
 @Autonomous(name = "Simple Auto 2 Sec")
 public class SimpleAutonomous extends NextFTCOpMode {
 

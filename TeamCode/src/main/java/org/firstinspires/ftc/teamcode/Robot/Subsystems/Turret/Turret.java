@@ -15,8 +15,11 @@ import dev.nextftc.hardware.impl.MotorEx;
  * Turret Subsystem
  *
  * A rotating turret that aims the shooter at targets.
- * Uses a single motor with 8:1 gear ratio for precise positioning.
- * Supports both position control and vision-based auto-alignment.
+ * Uses a motor with 19.2:1 gearbox and 4.1:1 turret gear (78.72:1 total).
+ * Supports position control, vision-based auto-alignment, and odometry-based targeting.
+ *
+ * IMPORTANT: No limit switch! Must manually zero at startup.
+ * Position turret facing forward before enabling robot.
  */
 public class Turret implements Subsystem {
 
@@ -30,6 +33,9 @@ public class Turret implements Subsystem {
     private double targetAngle = 0;           // Target angle in degrees
     private boolean hasTarget = false;        // Position control active?
     private boolean isAligning = false;       // Vision alignment active?
+    private boolean isOdometryTargeting = false; // Odometry-based targeting active?
+    private boolean isReturningToCenter = false; // Returning to center after tracking?
+    private boolean isZeroed = false;         // Has turret been manually zeroed?
 
     // Control state
     private double targetTicks = 0;           // Target encoder position
@@ -40,9 +46,16 @@ public class Turret implements Subsystem {
     private double lastError = 0.0;
     private long lastPIDTime = 0;
 
+    // Power efficiency: track if motor is idle
+    private boolean isIdle = true;
+
     // Alignment state (for vision-based auto-align)
     private double alignError = 0;            // Error from vision (tx)
     private double lastAlignError = 0;
+
+    // Odometry targeting state
+    private double odometryTargetAngle = 0;   // Target angle from odometry calculation
+    private double robotHeading = 0;          // Current robot heading from odometry
 
     // Timing
     private ElapsedTime moveTimer = new ElapsedTime();
@@ -83,14 +96,19 @@ public class Turret implements Subsystem {
         // Update current angle from encoder
         currentAngle = TurretConstants.ticksToDegrees(getCurrentTicks());
 
-        // Position control loop
-        if (hasTarget && !isAligning) {
+        // Position control loop (manual go-to-angle)
+        if (hasTarget && !isAligning && !isOdometryTargeting) {
             runPositionPID();
         }
 
-        // Vision alignment loop (separate from position control)
+        // Vision alignment loop (Limelight-based)
         if (isAligning) {
             runAlignmentPID();
+        }
+
+        // Odometry targeting loop (field position-based)
+        if (isOdometryTargeting) {
+            runOdometryPID();
         }
 
         // Update telemetry
@@ -117,8 +135,11 @@ public class Turret implements Subsystem {
         lastError = 0.0;
         lastPIDTime = 0;
 
+        // Set position mode, clear other modes
         hasTarget = true;
         isAligning = false;
+        isOdometryTargeting = false;
+        isReturningToCenter = false;
         moveTimer.reset();
     }
 
@@ -127,6 +148,37 @@ public class Turret implements Subsystem {
      */
     public void goToCenter() {
         goToAngle(TurretConstants.POSITION_CENTER);
+    }
+
+    /**
+     * Return to center while unwinding cables.
+     * If turret is at positive angle (turned right/clockwise), returns by turning left (counter-clockwise).
+     * If turret is at negative angle (turned left/counter-clockwise), returns by turning right (clockwise).
+     * This prevents cable twisting from accumulated turns.
+     */
+    public void returnToCenterUnwinding() {
+        if (motor == null) return;
+
+        // Start position control to center
+        targetAngle = TurretConstants.POSITION_CENTER;
+        targetTicks = TurretConstants.degreesToTicks(TurretConstants.POSITION_CENTER);
+
+        // Reset PID state
+        lastError = 0.0;
+        lastPIDTime = 0;
+
+        hasTarget = true;
+        isAligning = false;
+        isOdometryTargeting = false;
+        isReturningToCenter = true;
+        moveTimer.reset();
+    }
+
+    /**
+     * Check if turret is currently returning to center
+     */
+    public boolean isReturningToCenter() {
+        return isReturningToCenter;
     }
 
     /**
@@ -149,6 +201,11 @@ public class Turret implements Subsystem {
         // Check if at position
         if (Math.abs(error) <= TurretConstants.POSITION_TOLERANCE) {
             setPower(0);
+            // Clear return-to-center flag when we reach center
+            if (isReturningToCenter) {
+                isReturningToCenter = false;
+                hasTarget = false;
+            }
             return;
         }
 
@@ -181,6 +238,8 @@ public class Turret implements Subsystem {
     public void startAutoAlign() {
         isAligning = true;
         hasTarget = false;
+        isOdometryTargeting = false;
+        isReturningToCenter = false;  // Cancel any return-to-center in progress
         alignError = 0;
         lastAlignError = 0;
     }
@@ -249,14 +308,140 @@ public class Turret implements Subsystem {
         setPower(power);
     }
 
+    // ===== ODOMETRY-BASED TARGETING =====
+
+    /**
+     * Start odometry-based targeting.
+     * Call setOdometryTarget() with robot position and target position each loop.
+     * The turret will calculate the required angle to face the target.
+     */
+    public void startOdometryTargeting() {
+        isOdometryTargeting = true;
+        isAligning = false;
+        hasTarget = false;
+        isReturningToCenter = false;  // Cancel any return-to-center in progress
+        lastError = 0;
+        lastAlignError = 0;  // Reset to prevent derivative spike when switching modes
+    }
+
+    /**
+     * Stop odometry-based targeting
+     */
+    public void stopOdometryTargeting() {
+        isOdometryTargeting = false;
+        setPower(0);
+    }
+
+    /**
+     * Set odometry target using robot pose and target field position.
+     * Calculates the required turret angle to face the target.
+     *
+     * @param robotX Robot X position on field (inches)
+     * @param robotY Robot Y position on field (inches)
+     * @param robotHeadingDeg Robot heading in degrees (0 = facing positive X)
+     * @param targetX Target X position on field (inches)
+     * @param targetY Target Y position on field (inches)
+     */
+    public void setOdometryTarget(double robotX, double robotY, double robotHeadingDeg,
+                                   double targetX, double targetY) {
+        this.robotHeading = robotHeadingDeg;
+
+        // Calculate angle from robot to target in field coordinates
+        double dx = targetX - robotX;
+        double dy = targetY - robotY;
+
+        // Angle to target in field frame (degrees, 0 = positive X axis)
+        double fieldAngleToTarget = Math.toDegrees(Math.atan2(dy, dx));
+
+        // Convert to turret angle (relative to robot heading)
+        // Turret angle = field angle to target - robot heading
+        odometryTargetAngle = fieldAngleToTarget - robotHeadingDeg;
+
+        // Normalize to -180 to 180
+        while (odometryTargetAngle > 180) odometryTargetAngle -= 360;
+        while (odometryTargetAngle < -180) odometryTargetAngle += 360;
+
+        // Clamp to turret limits
+        odometryTargetAngle = TurretConstants.clampAngle(odometryTargetAngle);
+    }
+
+    /**
+     * Odometry targeting PID control loop
+     */
+    private void runOdometryPID() {
+        // Error is difference between current angle and target angle
+        double error = odometryTargetAngle - currentAngle;
+
+        // Normalize error to -180 to 180
+        while (error > 180) error -= 360;
+        while (error < -180) error += 360;
+
+        // Check if aligned (within deadband)
+        if (Math.abs(error) <= TurretConstants.ALIGN_DEADBAND) {
+            setPower(0);
+            return;
+        }
+
+        // PD control
+        double p = TurretConstants.ALIGN_kP * error;
+        double derivative = error - lastAlignError;
+        double d = TurretConstants.ALIGN_kD * derivative;
+        lastAlignError = error;
+
+        double power = p + d;
+
+        // Add static friction compensation
+        if (Math.abs(power) > 0.01) {
+            power += Math.signum(power) * TurretConstants.kS;
+        }
+
+        // Clamp power
+        power = Math.max(-TurretConstants.MAX_POWER,
+                Math.min(TurretConstants.MAX_POWER, power));
+
+        // Check soft limits
+        double currentTicks = getCurrentTicks();
+        if ((currentTicks >= TurretConstants.MAX_TICKS && power > 0) ||
+            (currentTicks <= TurretConstants.MIN_TICKS && power < 0)) {
+            power = 0;  // Stop at limits
+        }
+
+        setPower(power);
+    }
+
+    /**
+     * Check if turret is aligned to odometry target
+     */
+    public boolean isOdometryAligned() {
+        double error = Math.abs(odometryTargetAngle - currentAngle);
+        return error <= TurretConstants.ALIGN_DEADBAND;
+    }
+
+    /**
+     * Check if odometry targeting is active
+     */
+    public boolean isOdometryTargeting() {
+        return isOdometryTargeting;
+    }
+
+    /**
+     * Get the current odometry target angle
+     */
+    public double getOdometryTargetAngle() {
+        return odometryTargetAngle;
+    }
+
     // ===== MANUAL CONTROL =====
 
     /**
      * Manual spin control (for joystick input)
      */
     public void spin(double power) {
+        // Clear all automatic modes when manually controlling
         hasTarget = false;
         isAligning = false;
+        isOdometryTargeting = false;
+        isReturningToCenter = false;
 
         // Scale power
         power *= TurretConstants.MANUAL_POWER_SCALE;
@@ -277,6 +462,8 @@ public class Turret implements Subsystem {
     public void stop() {
         hasTarget = false;
         isAligning = false;
+        isOdometryTargeting = false;
+        isReturningToCenter = false;
         setPower(0);
     }
 
@@ -327,15 +514,72 @@ public class Turret implements Subsystem {
         return alignError;
     }
 
+    /**
+     * Get current motor power (useful for checking turret direction)
+     * Positive = clockwise, Negative = counter-clockwise, ~0 = static
+     */
+    public double getCurrentPower() {
+        return currentPower;
+    }
+
+    /**
+     * Check if turret is turning clockwise (positive power)
+     */
+    public boolean isTurningClockwise() {
+        return currentPower > 0.05;  // Small threshold to avoid noise
+    }
+
+    /**
+     * Check if turret is turning counter-clockwise (negative power)
+     */
+    public boolean isTurningCounterClockwise() {
+        return currentPower < -0.05;  // Small threshold to avoid noise
+    }
+
+    /**
+     * Check if turret is static (not moving)
+     */
+    public boolean isStatic() {
+        return Math.abs(currentPower) <= 0.05;
+    }
+
+    /**
+     * Check if shooter is allowed to rev based on turret direction.
+     * Shooter can only rev when turret is clockwise or static (not counter-clockwise).
+     * Exception: Always allow during return-to-center (automatic cable unwinding).
+     */
+    public boolean canShooterRev() {
+        // Always allow shooter during automatic return-to-center
+        if (isReturningToCenter) {
+            return true;
+        }
+        // Otherwise, block only when actively turning counter-clockwise
+        return !isTurningCounterClockwise();
+    }
+
     // ===== LOW-LEVEL CONTROL =====
 
     /**
-     * Set motor power directly
+     * Set motor power directly with power efficiency management
      */
     private void setPower(double power) {
         if (motor == null) return;
         this.currentPower = power;
-        motor.setPower(power);
+
+        // Power efficiency: switch to float mode when idle
+        if (Math.abs(power) < 0.01) {
+            if (!isIdle) {
+                motor.floatMode();  // Save power when idle
+                isIdle = true;
+            }
+            motor.setPower(0);
+        } else {
+            if (isIdle) {
+                motor.brakeMode();  // Better control when active
+                isIdle = false;
+            }
+            motor.setPower(power);
+        }
     }
 
     /**
@@ -350,12 +594,32 @@ public class Turret implements Subsystem {
     }
 
     /**
-     * Reset turret to center and zero encoder
+     * Zero the turret - MUST be called when turret is manually positioned at center.
+     * This sets the current position as 0 degrees (center/forward).
+     * Call this during init after physically positioning the turret.
      */
-    public void home() {
+    public void zero() {
         resetEncoder();
         hasTarget = false;
         isAligning = false;
+        isOdometryTargeting = false;
+        isReturningToCenter = false;
+        isZeroed = true;
+        ActiveOpMode.telemetry().addData("Turret", "ZEROED - Current position is now CENTER (0°)");
+    }
+
+    /**
+     * Check if turret has been zeroed this session
+     */
+    public boolean isZeroed() {
+        return isZeroed;
+    }
+
+    /**
+     * Reset turret to center and zero encoder (legacy method, use zero() instead)
+     */
+    public void home() {
+        zero();
     }
 
     // ===== TELEMETRY =====
@@ -363,15 +627,41 @@ public class Turret implements Subsystem {
     private void updateTelemetry() {
         try {
             ActiveOpMode.telemetry().addData("--- TURRET ---", "");
-            ActiveOpMode.telemetry().addData("Angle", "%.1f deg", currentAngle);
+
+            // Warning if not zeroed
+            if (!isZeroed) {
+                ActiveOpMode.telemetry().addData("!! WARNING !!", "TURRET NOT ZEROED");
+            }
+
+            ActiveOpMode.telemetry().addData("Angle", "%.1f° (limit: ±%.0f°)",
+                    currentAngle, TurretConstants.MAX_ANGLE_DEGREES);
             ActiveOpMode.telemetry().addData("Target", "%.1f deg", targetAngle);
             ActiveOpMode.telemetry().addData("Power", "%.2f", currentPower);
-            ActiveOpMode.telemetry().addData("Mode", hasTarget ? "Position" : (isAligning ? "Auto-Align" : "Manual"));
+
+            String mode = "Manual";
+            if (isReturningToCenter) mode = "Returning";
+            else if (hasTarget) mode = "Position";
+            else if (isAligning) mode = "Vision";
+            else if (isOdometryTargeting) mode = "Odometry";
+            ActiveOpMode.telemetry().addData("Mode", mode);
+
+            // Show turret direction for shooter interlock
+            String direction = "Static";
+            if (isTurningClockwise()) direction = "CW";
+            else if (isTurningCounterClockwise()) direction = "CCW";
+            ActiveOpMode.telemetry().addData("Direction", direction);
+            ActiveOpMode.telemetry().addData("Shooter OK", canShooterRev() ? "YES" : "NO (CCW)");
+
             ActiveOpMode.telemetry().addData("At Position", atPosition() ? "YES" : "NO");
 
             if (isAligning) {
                 ActiveOpMode.telemetry().addData("Align Error", "%.2f deg", alignError);
                 ActiveOpMode.telemetry().addData("Aligned", isAligned() ? "YES" : "NO");
+            }
+
+            if (isOdometryTargeting) {
+                ActiveOpMode.telemetry().addData("Odom Target", "%.1f deg", odometryTargetAngle);
+                ActiveOpMode.telemetry().addData("Odom Aligned", isOdometryAligned() ? "YES" : "NO");
             }
         } catch (Exception e) {
             // Telemetry not ready

@@ -101,10 +101,19 @@ public class TurretCommands {
     }
 
     /**
-     * Reset turret encoder (home position)
+     * Reset turret encoder (home position) - legacy, use zero() instead
      */
     public static Command home(Turret turret) {
         return new InstantCommand("TurretHome", turret::home);
+    }
+
+    /**
+     * Zero the turret - sets current position as center (0 degrees).
+     * MUST be called when turret is manually positioned at center/forward.
+     * Call this during init after physically positioning the turret.
+     */
+    public static Command zero(Turret turret) {
+        return new InstantCommand("TurretZero", turret::zero);
     }
 
     // ===== AUTO-ALIGN (VISION-BASED) =====
@@ -113,6 +122,8 @@ public class TurretCommands {
      * Auto-align turret to AprilTag using Limelight vision.
      * Runs continuously until interrupted (for TeleOp button hold).
      * Uses the chassis's Limelight for vision data.
+     * When stopped, turret returns to center position by turning the opposite direction
+     * to prevent cable twisting.
      */
     public static Command autoAlign(Turret turret, SuperChassis chassis) {
         return new LambdaCommand()
@@ -143,6 +154,8 @@ public class TurretCommands {
                 })
                 .setStop(interrupted -> {
                     turret.stopAutoAlign();
+                    // Return to center by turning the opposite direction to unwind cables
+                    turret.returnToCenterUnwinding();
                 })
                 .setIsDone(() -> false)  // Run until interrupted
                 .setInterruptible(true);
@@ -151,6 +164,7 @@ public class TurretCommands {
     /**
      * Auto-align turret to any visible AprilTag (not just alignment tags).
      * Useful for testing or special scenarios.
+     * When stopped, returns to center by turning the opposite direction.
      */
     public static Command autoAlignAnyTag(Turret turret, SuperChassis chassis) {
         return new LambdaCommand()
@@ -169,6 +183,8 @@ public class TurretCommands {
                 })
                 .setStop(interrupted -> {
                     turret.stopAutoAlign();
+                    // Return to center by turning the opposite direction to unwind cables
+                    turret.returnToCenterUnwinding();
                 })
                 .setIsDone(() -> false)
                 .setInterruptible(true);
@@ -177,6 +193,7 @@ public class TurretCommands {
     /**
      * Auto-align with joystick fallback.
      * If no valid target, allow manual control.
+     * When stopped, returns to center by turning the opposite direction.
      */
     public static Command autoAlignWithFallback(Turret turret, SuperChassis chassis,
                                                   DoubleSupplier manualPower) {
@@ -209,7 +226,8 @@ public class TurretCommands {
                 })
                 .setStop(interrupted -> {
                     turret.stopAutoAlign();
-                    turret.stop();
+                    // Return to center by turning the opposite direction to unwind cables
+                    turret.returnToCenterUnwinding();
                 })
                 .setIsDone(() -> false)
                 .setInterruptible(true);
@@ -244,6 +262,108 @@ public class TurretCommands {
                     }
                 })
                 .setIsDone(() -> turret.isAligned())
+                .setInterruptible(true);
+    }
+
+    // ===== ODOMETRY-BASED TARGETING =====
+
+    /**
+     * Target a fixed field position using odometry.
+     * Turret will continuously track the target as the robot moves.
+     * Uses robot pose from chassis odometry.
+     * When stopped, returns to center by turning the opposite direction.
+     *
+     * @param turret The turret subsystem
+     * @param chassis The chassis (provides robot pose from odometry)
+     * @param targetX Target X position on field (inches)
+     * @param targetY Target Y position on field (inches)
+     */
+    public static Command targetFieldPosition(Turret turret, SuperChassis chassis,
+                                               double targetX, double targetY) {
+        return new LambdaCommand()
+                .named("TurretOdometryTarget")
+                .requires(turret)
+                .setStart(() -> {
+                    turret.startOdometryTargeting();
+                })
+                .setUpdate(() -> {
+                    // Get robot pose from chassis odometry
+                    double robotX = chassis.getRobotPose().getX();
+                    double robotY = chassis.getRobotPose().getY();
+                    double robotHeading = Math.toDegrees(chassis.getAngle().inRad);
+
+                    // Update turret target
+                    turret.setOdometryTarget(robotX, robotY, robotHeading, targetX, targetY);
+                })
+                .setStop(interrupted -> {
+                    turret.stopOdometryTargeting();
+                    // Return to center by turning the opposite direction to unwind cables
+                    turret.returnToCenterUnwinding();
+                })
+                .setIsDone(() -> false)  // Run until interrupted
+                .setInterruptible(true);
+    }
+
+    /**
+     * Hybrid auto-align: Uses Limelight when target visible, falls back to odometry.
+     * Best of both worlds - precise vision alignment when possible,
+     * predictive odometry tracking when vision is unavailable.
+     *
+     * @param turret The turret subsystem
+     * @param chassis The chassis (provides Limelight data and odometry)
+     * @param fallbackTargetX Field X to target when no vision (inches)
+     * @param fallbackTargetY Field Y to target when no vision (inches)
+     */
+    public static Command hybridAutoAlign(Turret turret, SuperChassis chassis,
+                                           double fallbackTargetX, double fallbackTargetY) {
+        final boolean[] usingVision = {false};
+
+        return new LambdaCommand()
+                .named("TurretHybridAlign")
+                .requires(turret)
+                .setStart(() -> {
+                    usingVision[0] = false;
+                })
+                .setUpdate(() -> {
+                    boolean hasVisionTarget = chassis.isLLConnected() &&
+                            VisionConstants.isAlignmentTag(chassis.getLastDetectedId());
+
+                    if (hasVisionTarget) {
+                        // Switch to vision mode if not already
+                        if (!usingVision[0] || turret.isOdometryTargeting()) {
+                            turret.stopOdometryTargeting();
+                            turret.startAutoAlign();
+                            usingVision[0] = true;
+                        }
+                        // Use Limelight tx for alignment
+                        double tx = chassis.getLLTx();
+                        turret.setAlignmentError(tx);
+
+                        dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Turret Mode", "VISION");
+                    } else {
+                        // Switch to odometry mode if not already
+                        if (usingVision[0] || turret.isAutoAligning()) {
+                            turret.stopAutoAlign();
+                            turret.startOdometryTargeting();
+                            usingVision[0] = false;
+                        }
+                        // Use odometry for targeting
+                        double robotX = chassis.getRobotPose().getX();
+                        double robotY = chassis.getRobotPose().getY();
+                        double robotHeading = Math.toDegrees(chassis.getAngle().inRad);
+                        turret.setOdometryTarget(robotX, robotY, robotHeading,
+                                fallbackTargetX, fallbackTargetY);
+
+                        dev.nextftc.ftc.ActiveOpMode.telemetry().addData("Turret Mode", "ODOMETRY");
+                    }
+                })
+                .setStop(interrupted -> {
+                    turret.stopAutoAlign();
+                    turret.stopOdometryTargeting();
+                    // Return to center by turning the opposite direction to unwind cables
+                    turret.returnToCenterUnwinding();
+                })
+                .setIsDone(() -> false)
                 .setInterruptible(true);
     }
 }
